@@ -105,9 +105,9 @@ def carregar_abas(planilha):
 
 # --- Funções de Manipulação de Dados com Cache ---
 @st.cache_data(ttl=CACHE_TTL)
-def obter_registros_df(aba_registros):
+def obter_registros_df(_aba_registros):
     try:
-        registros = api_request_with_retry(aba_registros.get_all_records)
+        registros = api_request_with_retry(_aba_registros.get_all_records)
         return pd.DataFrame(registros)
     except Exception as erro:
         st.error(f"Erro ao carregar registros: {erro}")
@@ -145,9 +145,9 @@ def atualizar_resumo(aba_registros, aba_resumo):
         st.session_state.resumo_df = pd.DataFrame()
 
 @st.cache_data(ttl=CACHE_TTL)
-def obter_resumo_df(aba_resumo):
+def obter_resumo_df(_aba_resumo):
     try:
-        dados_resumo = api_request_with_retry(aba_resumo.get_all_records)
+        dados_resumo = api_request_with_retry(_aba_resumo.get_all_records)
         return pd.DataFrame(dados_resumo)
     except Exception as erro:
         st.error(f"Erro ao carregar resumo: {erro}")
@@ -305,10 +305,10 @@ def display_historico(abas):
         column_config={
             "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
             "Duração (min)": st.column_config.NumberColumn("Minutos", format="%.1f")
-        },
-        hide_index=True,
+        },hide_index=True,
         use_container_width=True
     )
+
 def display_resumo_materias(abas):
     st.subheader("Progresso por Matéria")
     df_resumo = obter_resumo_df(abas['resumo'])
