@@ -28,7 +28,7 @@ st.markdown("""
     /* Cronômetro grande com fonte quadrada */
     .cronometro {
         font-family: 'Courier New', monospace;
-        font-size: 10rem !important;
+        font-size: 5rem !important;
         font-weight: bold;
         letter-spacing: 2px;
         text-align: center;
@@ -196,15 +196,14 @@ def parar_estudo():
         st.warning("Tempo mínimo não atingido. Registro não salvo.")
         return
     
-    novo_registro = [
-        st.session_state.inicio_estudo.strftime("%d/%m/%Y"),
-        st.session_state.inicio_estudo.strftime("%H:%M"),
-        fim_estudo.strftime("%H:%M"),
-        round(duracao/60, 2),
-        st.session_state.materia_atual
-    ]
-    
     try:
+        novo_registro = [
+            st.session_state.inicio_estudo.strftime("%d/%m/%Y"),
+            st.session_state.inicio_estudo.strftime("%H:%M"),
+            fim_estudo.strftime("%H:%M"),
+            round(duracao/60, 2),
+            st.session_state.materia_atual
+        ]
         st.session_state.abas['registros'].append_row(novo_registro)
         st.toast("✅ Estudo registrado com sucesso!", icon="✅")
     except Exception as erro:
@@ -222,8 +221,10 @@ def exibir_historico():
             st.warning("Nenhum registro encontrado")
             return
             
+        # Corrige o nome da coluna e converte tipos
+        df = df.rename(columns={'Duraçãot; (min)': 'Duração (min)'})
         df['Data'] = pd.to_datetime(df['Data'], dayfirst=True)
-        df['Duração (min)'] = pd.to_numeric(df['Duração (min)'])
+        df['Duração (min)'] = pd.to_numeric(df['Duração (min)'], errors='coerce')
         
         # Métricas principais
         total_min = df['Duração (min)'].sum()
@@ -242,7 +243,7 @@ def exibir_historico():
             x='Matéria',
             y='Duração (min)',
             color=alt.Color('Matéria', legend=None),
-            tooltip=['Matéria', 'Duraçãot; (min)']
+            tooltip=['Matéria', 'Duração (min)']
         ).properties(height=300)
         st.altair_chart(chart, use_container_width=True)
         
@@ -257,12 +258,12 @@ def exibir_historico():
             x=alt.X('Dia', title='Dia da Semana'),
             y=alt.Y('Duração (min)', title='Minutos Estudados'),
             color=alt.value('#2e86c1'),
-            tooltip=['Dia', 'Duraçãot; (min)']
+            tooltip=['Dia', 'Duração (min)']
         ).properties(height=300)
         st.altair_chart(weekly_chart, use_container_width=True)
         
     except Exception as erro:
-        st.error(f"Erro ao cargar dados: {erro}")
+        st.error(f"Erro ao carregar dados: {erro}")
 
 def main():
     """Função principal"""
