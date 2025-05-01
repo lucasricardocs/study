@@ -28,7 +28,7 @@ st.markdown("""
     /* Cronômetro grande com fonte quadrada */
     .cronometro {
         font-family: 'Courier New', monospace;
-        font-size: 5rem !important;
+        font-size: 10rem !important;
         font-weight: bold;
         letter-spacing: 2px;
         text-align: center;
