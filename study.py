@@ -154,7 +154,7 @@ def exibir_cronometro():
         
         # Botão de parar (fora do loop para evitar duplicação)
         st.markdown("<div class='controle-botoes'>", unsafe_allow_html=True)
-        parar = st.button("⏹️ PARAR ESTUDO", type="primary")
+        parar = st.button("⏹️ PARAR ESTUDO", type="primary", key="stop_button")
         st.markdown("</div>", unsafe_allow_html=True)
         
         while st.session_state.estudo_ativo and not parar:
@@ -176,19 +176,12 @@ def exibir_cronometro():
             time.sleep(0.1)
         
         if parar:
+            parar_estudo()  # Esta linha foi adicionada para chamar a função de registro
             st.session_state.estudo_ativo = False
             st.rerun()
 
-def iniciar_estudo(materia):
-    """Inicia uma sessão de estudo"""
-    st.session_state.estudo_ativo = True
-    st.session_state.inicio_estudo = datetime.now()
-    st.session_state.materia_atual = materia
-    st.toast(f"Iniciando estudo de {materia}!", icon="📚")
-    st.rerun()
-
 def parar_estudo():
-    """Finaliza a sessão de estudo"""
+    """Finaliza a sessão de estudo e registra os dados"""
     fim_estudo = datetime.now()
     duracao = (fim_estudo - st.session_state.inicio_estudo).total_seconds()
     
@@ -197,17 +190,35 @@ def parar_estudo():
         return
     
     try:
+        # Prepara os dados para registro
         novo_registro = [
-            st.session_state.inicio_estudo.strftime("%d/%m/%Y"),
-            st.session_state.inicio_estudo.strftime("%H:%M"),
-            fim_estudo.strftime("%H:%M"),
-            round(duracao/60, 2),
-            st.session_state.materia_atual
+            st.session_state.inicio_estudo.strftime("%d/%m/%Y"),  # Data
+            st.session_state.inicio_estudo.strftime("%H:%M"),     # Hora Início
+            fim_estudo.strftime("%H:%M"),                         # Hora Fim
+            round(duracao/60, 2),                                 # Duração em minutos
+            st.session_state.materia_atual                         # Matéria
         ]
+        
+        # Adiciona a nova linha na planilha
         st.session_state.abas['registros'].append_row(novo_registro)
-        st.toast("✅ Estudo registrado com sucesso!", icon="✅")
+        
+        # Atualiza o cache
+        st.session_state.ultima_atualizacao_cache['registros'] = None
+        
+        # Feedback para o usuário
+        st.toast(f"✅ {st.session_state.materia_atual} registrada por {round(duracao/60, 1)} minutos!", icon="✅")
+        
+        # Atualiza o último registro
+        st.session_state.ultimo_registro = {
+            'materia': st.session_state.materia_atual,
+            'duracao': round(duracao/60, 2),
+            'inicio': st.session_state.inicio_estudo.strftime("%H:%M"),
+            'fim': fim_estudo.strftime("%H:%M")
+        }
+        
     except Exception as erro:
-        st.error(f"Erro ao salvar: {erro}")
+        st.error(f"Erro ao salvar registro: {erro}")
+        st.toast("❌ Falha ao registrar estudo", icon="❌")
 
 def exibir_historico():
     """Exibe o histórico e gráficos"""
