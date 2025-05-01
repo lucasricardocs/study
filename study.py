@@ -126,13 +126,15 @@ def atualizar_resumo(aba_registros, aba_resumo):
     if df_registros.empty:
         try:
             api_request_with_retry(aba_resumo.clear)
+            api_request_with_retry(aba_resumo.append_row, ["Matéria", "Duração (min)"])
         except Exception as erro:
-            st.error(f"Erro ao limpar aba de resumo: {erro}")
-        st.session_state.resumo_df = pd.DataFrame()
+            st.error(f"Erro ao limpar/inicializar aba de resumo: {erro}")
+        st.session_state.resumo_df = pd.DataFrame(columns=["Matéria", "Duração (min)"])
         return
 
     df_registros['Duração (min)'] = pd.to_numeric(df_registros['Duração (min)'], errors='coerce')
     totais_por_materia = df_registros.groupby('Matéria')['Duração (min)'].sum().reset_index()
+    totais_por_materia.columns = ["Matéria", "Duração (min)"]
     totais_por_materia['Total (horas)'] = (totais_por_materia['Duração (min)'] / 60).round(2)
 
     try:
@@ -142,7 +144,7 @@ def atualizar_resumo(aba_registros, aba_resumo):
         st.session_state.resumo_df = totais_por_materia
     except Exception as erro:
         st.error(f"📊 Erro ao atualizar resumo: {erro}", icon="❌")
-        st.session_state.resumo_df = pd.DataFrame()
+        st.session_state.resumo_df = pd.DataFrame(columns=["Matéria", "Duração (min)"])
 
 @st.cache_data(ttl=CACHE_TTL)
 def obter_resumo_df(_aba_resumo):
@@ -152,6 +154,25 @@ def obter_resumo_df(_aba_resumo):
     except Exception as erro:
         st.error(f"Erro ao carregar resumo: {erro}")
         return pd.DataFrame()
+
+def atualizar_resumo_direto(aba_resumo, materia, duracao):
+    try:
+        resumo_data = api_request_with_retry(aba_resumo.get_all_values)
+        df_resumo = pd.DataFrame(resumo_data[1:], columns=resumo_data[0])
+        df_resumo['Duração (min)'] = pd.to_numeric(df_resumo['Duração (min)'], errors='coerce', errors='ignore').fillna(0)
+
+        if materia in df_resumo['Matéria'].values:
+            df_resumo.loc[df_resumo['Matéria'] == materia, 'Duração (min)'] += duracao
+        else:
+            nova_linha = pd.DataFrame([{'Matéria': materia, 'Duração (min)': duracao}])
+            df_resumo = pd.concat([df_resumo, nova_linha], ignore_index=True)
+
+        valores_para_atualizar = [df_resumo.columns.tolist()] + df_resumo[['Matéria', 'Duração (min)']].values.tolist()
+        api_request_with_retry(aba_resumo.clear)
+        api_request_with_retry(aba_resumo.update, values=valores_para_atualizar)
+        obter_resumo_df.clear() # Limpar cache do resumo
+    except Exception as e:
+        st.error(f"Erro ao atualizar o resumo diretamente: {e}")
 
 # --- Funções de Formatação e Gráfico ---
 def formatar_duracao(segundos):
@@ -200,7 +221,7 @@ def display_ultimo_registro():
         st.info(
             f"Último registro: **{st.session_state.ultimo_registro['materia']}** "
             f"({st.session_state.ultimo_registro['duracao']:.2f} min) "
-            f"das {st.session_state.ultimo_registro['inicio']} às {st.session_state.ultimo_registro['fim']}"
+            f"às {st.session_state.ultimo_registro['fim']}"
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -223,33 +244,33 @@ def handle_parar_estudo(abas):
         return
 
     duracao_minutos = round(duracao_segundos / 60, 2)
-    novo_registro = [
-        st.session_state.inicio_estudo.strftime("%d/%m/%Y"),
-        st.session_state.inicio_estudo.strftime("%H:%M"),
-        fim_estudo.strftime("%H:%M"),
-        duracao_minutos,
-        st.session_state.materia_atual
-    ]
+    materia = st.session_state.materia_atual
+    data_hoje = datetime.now().strftime("%d/%m/%Y")
+    hora_inicio = st.session_state.inicio_estudo.strftime("%H:%M")
+    hora_fim = fim_estudo.strftime("%H:%M")
 
-    st.write(f"Debug: Dados a serem salvos: {novo_registro}")
+    novo_registro = [data_hoje, hora_inicio, hora_fim, duracao_minutos, materia]
+
+    st.write(f"Debug: Dados a serem salvos no registro: {novo_registro}")
     try:
         st.write("Debug: Tentando salvar registro...")
         api_request_with_retry(abas['registros'].append_row, novo_registro)
-        st.write("Debug: Registro salvo (ou tentativa)")
+        st.write("Debug: Registro salvo no histórico.")
         st.session_state.ultimo_registro = {
-            'materia': st.session_state.materia_atual,
+            'materia': materia,
             'duracao': duracao_minutos,
-            'inicio': st.session_state.inicio_estudo.strftime("%H:%M"),
-            'fim': fim_estudo.strftime("%H:%M")
+            'fim': hora_fim
         }
-        # Limpar cache para forçar a atualização na próxima vez que os dados forem solicitados
-        obter_registros_df.clear()
-        obter_resumo_df.clear()
-        atualizar_resumo(abas['registros'], abas['resumo'])
-        st.toast(f"✅ {st.session_state.materia_atual}: {duracao_minutos} minutos registrados!", icon="✅")
+        obter_registros_df.clear() # Limpar cache dos registros
+
+        st.write("Debug: Tentando atualizar o resumo...")
+        atualizar_resumo_direto(abas['resumo'], materia, duracao_minutos)
+        st.write("Debug: Resumo atualizado.")
+
+        st.toast(f"✅ {materia}: {duracao_minutos} minutos registrados!", icon="✅")
     except Exception as erro:
         st.error(f"Erro ao salvar registro: {erro}")
-        st.write(f"Debug: Erro ocorrido: {erro}")
+        st.write(f"Debug: Erro ocorrido ao salvar: {erro}")
 
     st.session_state.estudo_ativo = False
     st.experimental_rerun()
@@ -292,7 +313,7 @@ def display_historico(abas):
 
     df_filtrado = df_registros.copy()
     if filtro_materia != "Todas":
-        df_filtrado = df_filtrado[df_filtrado['Matéria'] == filtro_materia]
+        df_filtrado = df_filtrado[df_filtrado['Matéria'] ==filtro_materia]
 
     total_minutos_estudados = df_filtrado['Duração (min)'].sum()
     st.metric("Total de minutos estudados", f"{total_minutos_estudados:.2f} min")
@@ -317,8 +338,12 @@ def display_resumo_materias(abas):
         st.info("Comece a registrar seus estudos para ver o progresso por matéria.")
         return
 
+    if 'Matéria' not in df_resumo.columns or 'Duração (min)' not in df_resumo.columns:
+        st.warning("A aba 'Resumo' não possui as colunas esperadas ('Matéria', 'Duração (min)').")
+        return
+
     df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
-    col_tabela, col_grafico = st.columns([1, 1])
+    col_tabela, col_grafico = st.columns([1, 2])
 
     with col_tabela:
         st.dataframe(
@@ -329,7 +354,7 @@ def display_resumo_materias(abas):
                     help="Tempo estudado em minutos",
                     format="%.1f",
                     min_value=0,
-                    max_value=df_resumo['Duração (min)'].max() * 1.1 if not df_resumo.empty else 1
+                    max_value=df_resumo['Duração (min)'].max() * 1.1 if not df_resumo.empty and df_resumo['Duração (min)'].max() > 0 else 1
                 ),
                 "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
             },
@@ -338,13 +363,16 @@ def display_resumo_materias(abas):
         )
 
     with col_grafico:
-        grafico = alt.Chart(df_resumo).mark_bar().encode(
-            x=alt.X('Matéria:N', sort='-y', title=None),
-            y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
-            color=alt.Color('Matéria:N', legend=None),
-            tooltip=['Matéria', 'Duração (min)', alt.Tooltip('Total (horas)', format=".2f")]
-        ).properties(height=400)
-        st.altair_chart(grafico, use_container_width=True)
+        if not df_resumo.empty:
+            grafico = alt.Chart(df_resumo).mark_bar().encode(
+                x=alt.X('Matéria:N', sort='-y', title=None),
+                y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
+                color=alt.Color('Matéria:N', legend=None),
+                tooltip=['Matéria', 'Duração (min)', alt.Tooltip('Total (horas)', format=".2f")]
+            ).properties(height=400)
+            st.altair_chart(grafico, use_container_width=True)
+        else:
+            st.info("Nenhum dado de resumo para exibir no gráfico.")
 
 def display_analise_padroes(abas):
     st.subheader("Análise de Padrões")
