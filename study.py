@@ -324,8 +324,8 @@ def display_resumo_materias(abas):
         return
 
     if 'Matéria' not in df_resumo.columns or 'Duração (min)' not in df_resumo.columns:
-        st.warning("A aba 'Resumo' não possui as colunas esperadas ('Matéria', 'Duração (min)').")
-            return
+    st.warning("A aba 'Resumo' não possui as colunas esperadas ('Matéria', 'Duração (min)').")
+    return
     
         df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
         col_tabela, col_grafico = st.columns([1, 2])
