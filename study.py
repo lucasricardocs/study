@@ -329,8 +329,7 @@ def display_resumo_materias(abas):
                 "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
             },
             hide_index=True,
-            use_container
-            width=True
+            use_container_width=True
         )
 
     with col_grafico:
