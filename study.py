@@ -333,7 +333,7 @@ def display_analise_padroes(abas):
         frequencia = total_sessoes / dias_unicos if dias_unicos > 0 else 0
         if frequencia < 1:
             st.info("🗓️ Parece que você não estuda todos os dias. Tentar estudar um pouco diariamente pode ajudar na consistência.")
-        elif frequencia
+        elif frequencia:
             st.info("🚀 Você está com um ritmo intenso de estudos! Certifique-se de incluir descanso para evitar o esgotamento.")
     else:
         st.info("📊 Comece a registrar seus estudos para receber dicas personalizadas!")
