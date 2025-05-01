@@ -255,17 +255,20 @@ def display_cronometro():
         placeholder_cronometro = st.empty()
         botao_parar_key = "stop_cronometro"  # Chave única para o botão
 
-        while st.session_state.estudo_ativo:
-            tempo_decorrido = (datetime.now() - st.session_state.inicio_estudo).total_seconds()
-            with placeholder_cronometro.container():
-                st.markdown(f"<p class='timer-display'>{formatar_duracao(tempo_decorrido)}</p>", unsafe_allow_html=True)
-                col_info1, col_info2, col_botao = st.columns(3)
-                col_info1.metric("Início", st.session_state.inicio_estudo.strftime("%H:%M:%S"))
-                col_info2.metric("Matéria", st.session_state.materia_atual)
-                if col_botao.button("⏹️ Parar agora", key=botao_parar_key):
-                    st.session_state.estudo_ativo = False
-                    st.experimental_rerun()
-            time.sleep(1)  # Atualiza a cada segundo
+        with placeholder_cronometro.container():
+            tempo_decorrido_placeholder = st.empty()
+            col_info1, col_info2, col_botao = st.columns(3)
+            col_info1.metric("Início", st.session_state.inicio_estudo.strftime("%H:%M:%S"))
+            col_info2.metric("Matéria", st.session_state.materia_atual)
+            if col_botao.button("⏹️ Parar agora", key=botao_parar_key):
+                st.session_state.estudo_ativo = False
+                st.experimental_rerun()
+
+            while st.session_state.estudo_ativo:
+                tempo_decorrido = (datetime.now() - st.session_state.inicio_estudo).total_seconds()
+                tempo_decorrido_placeholder.markdown(f"<p class='timer-display'>{formatar_duracao(tempo_decorrido)}</p>", unsafe_allow_html=True)
+                time.sleep(1)  # Atualiza a cada segundo
+
         placeholder_cronometro.empty()
 
 def display_historico(abas):
