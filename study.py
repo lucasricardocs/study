@@ -159,7 +159,7 @@ def atualizar_resumo_direto(aba_resumo, materia, duracao):
     try:
         resumo_data = api_request_with_retry(aba_resumo.get_all_values)
         df_resumo = pd.DataFrame(resumo_data[1:], columns=resumo_data[0])
-        df_resumo['Duração (min)'] = pd.to_numeric(df_resumo['Duração (min)'], errors='coerce').fillna(0)
+        df_resumo['Duração (min)'] = pd.to_numeric(df_resumo['Duração (min)'], errors='coerce', errors='ignore').fillna(0)
 
         if materia in df_resumo['Matéria'].values:
             df_resumo.loc[df_resumo['Matéria'] == materia, 'Duração (min)'] += duracao
@@ -167,9 +167,18 @@ def atualizar_resumo_direto(aba_resumo, materia, duracao):
             nova_linha = pd.DataFrame([{'Matéria': materia, 'Duração (min)': duracao}])
             df_resumo = pd.concat([df_resumo, nova_linha], ignore_index=True)
 
-        valores_para_atualizar = [df_resumo.columns.tolist()] + df_resumo[['Matéria', 'Duração (min)']].values.tolist()
-        api_request_with_retry(aba_resumo.clear)
-        api_request_with_retry(aba_resumo.update, values=valores_para_atualizar)
+        valores_para_atualizar = [df_resumo['Matéria'].tolist(), df_resumo['Duração (min)'].tolist()]
+
+        # Limpar a aba de resumo (mantendo potencialmente a primeira linha de cabeçalho)
+        num_rows = len(api_request_with_retry(aba_resumo.get_all_values))
+        if num_rows > 0:
+            api_request_with_retry(aba_resumo.delete_rows, 1, num_rows)
+
+        # Adicionar os dados atualizados, incluindo o cabeçalho
+        header = ["Matéria", "Duração (min)"]
+        data_to_write = [header] + df_resumo[['Matéria', 'Duração (min)']].values.tolist()
+        api_request_with_retry(aba_resumo.update, values=data_to_write)
+
         obter_resumo_df.clear() # Limpar cache do resumo
     except Exception as e:
         st.error(f"Erro ao atualizar o resumo diretamente: {e}")
