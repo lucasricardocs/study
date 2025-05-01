@@ -160,12 +160,16 @@ def display_cronometro():
 
 def display_ultimo_registro():
     if st.session_state.ultimo_registro:
-        st.subheader("Último Registro")
         registro = st.session_state.ultimo_registro
-        st.write(f"**Matéria:** {registro['materia']}")
-        st.write(f"**Início (Brasília):** {registro['hora_inicio']}")
-        st.write(f"**Fim (Brasília):** {registro['hora_fim']}")
-        st.write(f"**Duração:** {registro['duracao']} min")
+        if 'hora_inicio' in registro:
+            st.subheader("Último Registro")
+            st.write(f"**Matéria:** {registro['materia']}")
+            st.write(f"**Início (Brasília):** {registro['hora_inicio']}")
+            st.write(f"**Fim (Brasília):** {registro['hora_fim']}")
+            st.write(f"**Duração:** {registro['duracao']} min")
+        else:
+            st.subheader("Sem registros recentes")
+            st.warning("O último registro parece incompleto.", icon="⚠️")
     else:
         st.subheader("Sem registros recentes")
 
