@@ -34,7 +34,7 @@ def conectar_google_sheets():
 def carregar_dados(gc):
     """Carrega todas as abas necessárias da planilha"""
     try:
-        spreadsheet_id = st.secrets["spreadsheet_id"]
+        spreadsheet_id = st.secrets["1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs"]
         spreadsheet = gc.open_by_key(spreadsheet_id)
         
         # Carregar cada aba
