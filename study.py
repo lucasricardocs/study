@@ -24,7 +24,7 @@ if 'estudo_ativo' not in st.session_state:
         'inicio_estudo': None,
         'materia_atual': None,
         'ultimo_registro': None,
-        'planilha': None,
+        'planilha_conectada': False,
         'aba_registros': None
     })
 
@@ -39,11 +39,14 @@ def conectar_google_sheets():
             ]
         )
         cliente = gspread.authorize(credenciais)
-        st.session_state.planilha = cliente.open("Registro de Estudos")
-        st.session_state.aba_registros = st.session_state.planilha.worksheet("Registros")
+        planilha = cliente.open("Registro de Estudos")
+        aba_registros = planilha.worksheet("Registros")
+        st.session_state.planilha_conectada = True
+        st.session_state.aba_registros = aba_registros
+        return True
     except Exception as e:
         st.error(f"Erro ao conectar ao Google Sheets: {e}")
-        st.stop()
+        return False
 
 # Função para formatar a duração
 def formatar_duracao(segundos):
@@ -53,8 +56,9 @@ def formatar_duracao(segundos):
 
 # Função para iniciar o estudo
 def iniciar_estudo(materia_selecionada):
-    if st.session_state.planilha is None:
-        conectar_google_sheets()
+    if not st.session_state.planilha_conectada:
+        if not conectar_google_sheets():
+            return
     
     st.session_state.estudo_ativo = True
     st.session_state.inicio_estudo = datetime.now()
@@ -99,8 +103,9 @@ def exibir_cronometro():
     if st.session_state.estudo_ativo:
         st.markdown("---")
         placeholder = st.empty()
+        stop_button_pressed = False
         
-        while st.session_state.estudo_ativo:
+        while st.session_state.estudo_ativo and not stop_button_pressed:
             tempo_decorrido = (datetime.now() - st.session_state.inicio_estudo).total_seconds()
             
             with placeholder.container():
@@ -119,41 +124,15 @@ def exibir_cronometro():
                 col1.metric("Matéria", st.session_state.materia_atual)
                 col2.metric("Início", st.session_state.inicio_estudo.strftime("%H:%M:%S"))
                 
-                if st.button("⏹️ Parar Estudo", type="primary", key="parar_estudo"):
+                if st.button("⏹️ Parar Estudo", type="primary", key="botao_parar"):
+                    stop_button_pressed = True
                     parar_estudo()
-                    break
             
             time.sleep(1)
-
-# Função para exibir histórico
-def exibir_historico():
-    try:
-        registros = st.session_state.aba_registros.get_all_records()
-        df = pd.DataFrame(registros)
-        
-        if not df.empty:
-            st.markdown("---")
-            st.subheader("Histórico de Estudos")
-            
-            # Gráfico de tempo por matéria
-            st.altair_chart(
-                alt.Chart(df).mark_bar().encode(
-                    x='Matéria',
-                    y='Duração (min)',
-                    color=alt.Color('Matéria', legend=None)
-                ).properties(height=300),
-                use_container_width=True
-            )
-    except Exception as e:
-        st.error(f"Erro ao carregar histórico: {e}")
 
 # Função principal
 def main():
     st.title("⏱️ Cronômetro de Estudos")
-    
-    # Conexão inicial
-    if st.session_state.planilha is None:
-        conectar_google_sheets()
     
     # Controles
     col1, col2 = st.columns([3, 1])
@@ -162,12 +141,13 @@ def main():
         materia = st.selectbox(
             "Selecione a matéria:",
             ["Matemática", "Português", "Direito", "Outros"],
-            disabled=st.session_state.estudo_ativo
+            disabled=st.session_state.estudo_ativo,
+            key="seletor_materia"
         )
     
     with col2:
         if not st.session_state.estudo_ativo:
-            if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
+            if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True, key="botao_iniciar"):
                 iniciar_estudo(materia)
     
     # Exibir cronômetro
@@ -181,8 +161,9 @@ def main():
         st.write(f"Duração: {st.session_state.ultimo_registro['duracao']} minutos")
         st.write(f"Horário: {st.session_state.ultimo_registro['inicio']} às {st.session_state.ultimo_registro['fim']}")
     
-    # Exibir histórico
-    exibir_historico()
+    # Tentar conectar ao Google Sheets se ainda não conectado
+    if not st.session_state.planilha_conectada:
+        conectar_google_sheets()
 
 if __name__ == "__main__":
     main()
