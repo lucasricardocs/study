@@ -8,25 +8,25 @@ from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from gspread.exceptions import SpreadsheetNotFound, APIError
 
-# Page configuration
+# Configuração da página
 st.set_page_config(
-    page_title="Study Timer",
+    page_title="Cronômetro de Estudos",
     page_icon="⏱️",
     layout="centered"
 )
 
-# Constants
-SPREADSHEET_NAME = "study"
-SPREADSHEET_ID = "1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs"
-MIN_DURATION_SECONDS = 10
-MAX_RETRIES = 5
-CACHE_TTL = 600
+# Constantes
+NOME_PLANILHA = "study"
+ID_PLANILHA = "1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs"
+DURACAO_MINIMA_SEGUNDOS = 10
+TENTATIVAS_MAXIMAS = 5
+TEMPO_VIDA_CACHE = 600
 
-# Custom CSS
+# CSS personalizado
 st.markdown("""
 <style>
-    /* Square font timer */
-    .big-timer {
+    /* Cronômetro grande com fonte quadrada */
+    .cronometro {
         font-family: 'Courier New', monospace;
         font-size: 5rem !important;
         font-weight: bold;
@@ -37,7 +37,7 @@ st.markdown("""
         text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
     }
     
-    /* Beautiful buttons */
+    /* Botões estilizados */
     .stButton>button {
         border-radius: 8px;
         border: 2px solid #2e86c1;
@@ -45,8 +45,6 @@ st.markdown("""
         font-weight: bold;
         font-size: 1.1rem;
         transition: all 0.3s;
-        background-color: white;
-        color: #2e86c1;
     }
     
     .stButton>button:hover {
@@ -55,21 +53,16 @@ st.markdown("""
         transform: scale(1.02);
     }
     
-    .primary-button {
-        background-color: #2e86c1 !important;
-        color: white !important;
-    }
-    
-    /* Button container */
-    .button-container {
+    /* Contêiner de botões */
+    .controle-botoes {
         display: flex;
         justify-content: center;
         gap: 20px;
         margin: 30px 0;
     }
     
-    /* Info cards */
-    .info-card {
+    /* Cartões de informação */
+    .cartao-info {
         background-color: #f8f9fa;
         border-radius: 10px;
         padding: 20px;
@@ -78,8 +71,8 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
-    /* Section headers */
-    .section-header {
+    /* Cabeçalhos de seção */
+    .cabecalho-secao {
         color: #2e86c1;
         border-bottom: 2px solid #2e86c1;
         padding-bottom: 5px;
@@ -88,7 +81,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session state initialization
+# Estado da sessão
 if 'estudo_ativo' not in st.session_state:
     st.session_state.update({
         'estudo_ativo': False,
@@ -102,17 +95,12 @@ if 'estudo_ativo' not in st.session_state:
             'registros': None,
             'materias': None,
             'resumo': None
-        }
+        },
+        'abas': None
     })
 
-def exponential_backoff(retry_count):
-    """Implements exponential backoff for retries"""
-    wait_time = min(2 ** retry_count + random.random(), 60)
-    time.sleep(wait_time)
-
-@st.cache_resource(ttl=CACHE_TTL)
 def conectar_google_sheets():
-    """Connects to Google Sheets with error handling"""
+    """Conecta ao Google Sheets"""
     try:
         credenciais = Credentials.from_service_account_info(
             st.secrets["google_credentials"],
@@ -123,314 +111,201 @@ def conectar_google_sheets():
         )
         return gspread.authorize(credenciais)
     except Exception as erro:
-        st.error(f"🔌 Connection failed: {erro}", icon="❌")
+        st.error(f"🔌 Falha na conexão: {erro}", icon="❌")
         st.stop()
-
-def api_request_with_retry(func, *args, **kwargs):
-    """Makes API calls with retry and exponential backoff"""
-    for tentativa in range(MAX_RETRIES):
-        try:
-            return func(*args, **kwargs)
-        except APIError as erro:
-            if erro.response.status_code == 429:
-                if tentativa < MAX_RETRIES - 1:
-                    st.warning(f"Rate limit reached, waiting... (attempt {tentativa+1}/{MAX_RETRIES})")
-                    exponential_backoff(tentativa)
-                else:
-                    st.error("Persistent rate limit. Please try again later.")
-                    raise
-            else:
-                st.error(f"API error: {erro}")
-                raise
-        except Exception as erro:
-            st.error(f"Unexpected error: {erro}")
-            raise
 
 def carregar_planilha(cliente_gs):
-    """Loads the specified spreadsheet, trying by ID then by name"""
+    """Carrega a planilha especificada"""
     try:
-        try:
-            return api_request_with_retry(cliente_gs.open_by_key, SPREADSHEET_ID)
-        except SpreadsheetNotFound:
-            return api_request_with_retry(cliente_gs.open, SPREADSHEET_NAME)
+        return cliente_gs.open_by_key(ID_PLANILHA)
     except SpreadsheetNotFound:
-        st.error(f"📄 Spreadsheet '{SPREADSHEET_NAME}' (ID: {SPREADSHEET_ID}) not found", icon="🔍")
-        st.stop()
-    except Exception as erro:
-        st.error(f"📂 Error accessing spreadsheet: {erro}", icon="❌")
-        st.stop()
+        try:
+            return cliente_gs.open(NOME_PLANILHA)
+        except Exception as erro:
+            st.error(f"📂 Erro ao acessar planilha: {erro}", icon="❌")
+            st.stop()
 
-def verificar_estrutura_planilha(planilha):
-    """Verifies if the spreadsheet has the required structure"""
-    try:
-        abas = api_request_with_retry(planilha.worksheets)
-        abas_disponiveis = {aba.title for aba in abas}
-        abas_requeridas = {"Registros", "Materias", "Resumo"}
-        
-        if not abas_requeridas.issubset(abas_disponiveis):
-            faltantes = abas_requeridas - abas_disponiveis
-            st.error(f"Missing sheets: {', '.join(faltantes)}")
-            return False
-            
-        return True
-    except Exception as erro:
-        st.error(f"Structure verification failed: {str(erro)[:200]}")
-        return False
-
-def carregar_abas(planilha):
-    """Loads the required worksheets"""
-    return {
+def inicializar_abas(planilha):
+    """Carrega as abas necessárias"""
+    st.session_state.abas = {
         'registros': planilha.worksheet("Registros"),
         'materias': planilha.worksheet("Materias"),
         'resumo': planilha.worksheet("Resumo")
     }
 
 def formatar_duracao(segundos):
-    """Formats seconds as HH:MM:SS"""
+    """Formata segundos em HH:MM:SS"""
     horas, resto = divmod(segundos, 3600)
     minutos, segundos = divmod(resto, 60)
     return f"{int(horas):02d}:{int(minutos):02d}:{int(segundos):02d}"
 
-def cache_expirado(tipo_cache):
-    """Checks if cache has expired"""
-    ultima_att = st.session_state.ultima_atualizacao_cache.get(tipo_cache)
-    if ultima_att is None:
-        return True
-    return (datetime.now() - ultima_att).total_seconds() > CACHE_TTL
-
-def obter_registros(aba_registros, forcar_atualizacao=False):
-    """Gets records with robust error handling"""
+def obter_materias():
+    """Obtém a lista de matérias"""
     try:
-        # Safe cache verification
-        cache_valido = (
-            not forcar_atualizacao and
-            st.session_state.get('registros_cache') is not None and
-            not cache_expirado('registros')
-        )
-        
-        if cache_valido:
-            return st.session_state.registros_cache
-            
-        # Data retrieval
-        registros = api_request_with_retry(aba_registros.get_all_records)
-        df_registros = pd.DataFrame(registros) if registros else pd.DataFrame()
-        
-        # Cache update
-        st.session_state.registros_cache = df_registros
-        st.session_state.ultima_atualizacao_cache['registros'] = datetime.now()
-        
-        return df_registros
-        
-    except Exception as erro:
-        st.error(f"⚠️ Error loading records. Using local cache... Details: {str(erro)[:200]}")
-        return st.session_state.get('registros_cache', pd.DataFrame())
+        return st.session_state.abas['materias'].col_values(1)[1:]
+    except Exception:
+        return ["Matemática", "Português", "Direito"]
 
-def obter_materias(aba_materias):
-    """Gets subjects list with robust error handling"""
-    try:
-        # Cache verification
-        if (st.session_state.get('materias_cache') is not None and 
-            not cache_expirado('materias')):
-            return st.session_state.materias_cache
-            
-        materias = api_request_with_retry(aba_materias.col_values, 1)[1:]  # Skip header
-        materias = [m for m in materias if m.strip()]  # Remove empty values
-        
-        # Cache update
-        st.session_state.materias_cache = materias if materias else ["Default Subject"]
-        st.session_state.ultima_atualizacao_cache['materias'] = datetime.now()
-        
-        return st.session_state.materias_cache
-        
-    except Exception as erro:
-        st.error(f"⚠️ Error loading subjects. Using cache... Details: {str(erro)[:200]}")
-        return st.session_state.get('materias_cache', ["Default Subject"])
-
-def atualizar_resumo(aba_registros, aba_resumo):
-    """Updates summary sheet with error handling"""
-    try:
-        df_registros = obter_registros(aba_registros)
-        
-        if df_registros.empty:
-            api_request_with_retry(aba_resumo.clear)
-            return pd.DataFrame()
-
-        df_registros['Duração (min)'] = pd.to_numeric(df_registros['Duração (min)'], errors='coerce')
-        totais_por_materia = df_registros.groupby('Matéria')['Duração (min)'].sum().reset_index()
-        totais_por_materia['Total (horas)'] = (totais_por_materia['Duração (min)'] / 60).round(2)
-
-        valores = [totais_por_materia.columns.values.tolist()] + totais_por_materia.values.tolist()
-        api_request_with_retry(aba_resumo.clear)
-        api_request_with_retry(aba_resumo.update, valores)
-        
-        st.session_state.resumo_cache = totais_por_materia
-        st.session_state.ultima_atualizacao_cache['resumo'] = datetime.now()
-        
-        return totais_por_materia
-    except Exception as erro:
-        st.error(f"⚠️ Error updating summary. Details: {str(erro)[:200]}")
-        return st.session_state.get('resumo_cache', pd.DataFrame())
-
-def display_cronometro():
-    """Displays large square-font timer"""
+def exibir_cronometro():
+    """Exibe o cronômetro principal"""
     if st.session_state.estudo_ativo:
         st.markdown("---")
         placeholder = st.empty()
         
-        while st.session_state.estudo_ativo:
+        # Botão de parar (fora do loop para evitar duplicação)
+        st.markdown("<div class='controle-botoes'>", unsafe_allow_html=True)
+        parar = st.button("⏹️ PARAR ESTUDO", type="primary")
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        while st.session_state.estudo_ativo and not parar:
             tempo_decorrido = (datetime.now() - st.session_state.inicio_estudo).total_seconds()
             
             with placeholder.container():
-                # Main timer
-                st.markdown(f"<div class='big-timer'>{formatar_duracao(tempo_decorrido)}</div>", 
-                           unsafe_allow_html=True)
+                st.markdown(f"<div class='cronometro'>{formatar_duracao(tempo_decorrido)}</div>", unsafe_allow_html=True)
                 
-                # Info cards
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(f"""
-                    <div class='info-card'>
-                        <h4>⏱️ IN PROGRESS</h4>
-                        <p><b>Subject:</b> {st.session_state.materia_atual}</p>
-                        <p><b>Started:</b> {st.session_state.inicio_estudo.strftime('%H:%M:%S')}</p>
+                    <div class='cartao-info'>
+                        <h4>⏱️ EM ANDAMENTO</h4>
+                        <p><b>Matéria:</b> {st.session_state.materia_atual}</p>
+                        <p><b>Início:</b> {st.session_state.inicio_estudo.strftime('%H:%M:%S')}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                # Centered stop button
-                st.markdown("<div class='button-container'>", unsafe_allow_html=True)
-                if st.button("⏹️ STOP STUDY", type="primary", key="stop_button"):
-                    st.session_state.estudo_ativo = False
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-                
+            
             time.sleep(0.1)
         
-        placeholder.empty()
+        if parar:
+            st.session_state.estudo_ativo = False
+            st.rerun()
 
-def handle_iniciar_estudo(materia_selecionada):
-    """Starts study session"""
+def iniciar_estudo(materia):
+    """Inicia uma sessão de estudo"""
     st.session_state.estudo_ativo = True
     st.session_state.inicio_estudo = datetime.now()
-    st.session_state.materia_atual = materia_selecionada
-    st.toast(f"Started studying {materia_selecionada}!", icon="📚")
+    st.session_state.materia_atual = materia
+    st.toast(f"Iniciando estudo de {materia}!", icon="📚")
     st.rerun()
 
-def handle_parar_estudo(abas):
-    """Stops study session and saves record"""
+def parar_estudo():
+    """Finaliza a sessão de estudo"""
     fim_estudo = datetime.now()
-    duracao_segundos = (fim_estudo - st.session_state.inicio_estudo).total_seconds()
-
-    if duracao_segundos < MIN_DURATION_SECONDS:
-        st.warning(f"⚠️ Minimum time not reached ({MIN_DURATION_SECONDS} seconds). Record not saved.")
-        st.session_state.estudo_ativo = False
-        st.rerun()
+    duracao = (fim_estudo - st.session_state.inicio_estudo).total_seconds()
+    
+    if duracao < DURACAO_MINIMA_SEGUNDOS:
+        st.warning("Tempo mínimo não atingido. Registro não salvo.")
         return
-
-    duracao_minutos = round(duracao_segundos / 60, 2)
+    
     novo_registro = [
         st.session_state.inicio_estudo.strftime("%d/%m/%Y"),
         st.session_state.inicio_estudo.strftime("%H:%M"),
         fim_estudo.strftime("%H:%M"),
-        duracao_minutos,
+        round(duracao/60, 2),
         st.session_state.materia_atual
     ]
-
+    
     try:
-        api_request_with_retry(abas['registros'].append_row, novo_registro)
-        
-        st.session_state.ultimo_registro = {
-            'materia': st.session_state.materia_atual,
-            'duracao': duracao_minutos,
-            'inicio': st.session_state.inicio_estudo.strftime("%H:%M"),
-            'fim': fim_estudo.strftime("%H:%M")
-        }
-        
-        st.session_state.ultima_atualizacao_cache['registros'] = None
-        atualizar_resumo(abas['registros'], abas['resumo'])
-        
-        st.toast(f"✅ {st.session_state.materia_atual}: {duracao_minutos} minutes recorded!", icon="✅")
+        st.session_state.abas['registros'].append_row(novo_registro)
+        st.toast("✅ Estudo registrado com sucesso!", icon="✅")
     except Exception as erro:
-        st.error(f"Error saving record: {erro}")
+        st.error(f"Erro ao salvar: {erro}")
 
-    st.session_state.estudo_ativo = False
-    st.rerun()
-
-def display_historico():
-    """Displays simplified study history"""
-    st.markdown("<h3 class='section-header'>STUDY HISTORY</h3>", unsafe_allow_html=True)
+def exibir_historico():
+    """Exibe o histórico e gráficos"""
+    st.markdown("<h3 class='cabecalho-secao'>HISTÓRICO E ANÁLISE</h3>", unsafe_allow_html=True)
     
-    with st.spinner("Loading data..."):
-        df_registros = obter_registros(st.session_state.abas['registros'])
-    
-    if not df_registros.empty:
-        # Calculate totals
-        total_min = df_registros['Duração (min)'].sum()
+    try:
+        registros = st.session_state.abas['registros'].get_all_records()
+        df = pd.DataFrame(registros)
+        
+        if df.empty:
+            st.warning("Nenhum registro encontrado")
+            return
+            
+        df['Data'] = pd.to_datetime(df['Data'], dayfirst=True)
+        df['Duração (min)'] = pd.to_numeric(df['Duração (min)'])
+        
+        # Métricas principais
+        total_min = df['Duração (min)'].sum()
         total_hrs = total_min / 60
+        media_min = df['Duração (min)'].mean()
         
-        # Display metrics
-        col1, col2 = st.columns(2)
-        col1.metric("Total Minutes", f"{total_min:.0f} min")
-        col2.metric("Total Hours", f"{total_hrs:.1f} h")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Minutos", f"{total_min:.0f} min")
+        col2.metric("Total Horas", f"{total_hrs:.1f} h")
+        col3.metric("Duração Média", f"{media_min:.1f} min")
         
-        # Simplified table
-        st.dataframe(
-            df_registros[['Data', 'Matéria', 'Duração (min)']].sort_values('Data', ascending=False),
-            column_config={
-                "Data": st.column_config.DateColumn(format="DD/MM/YYYY"),
-                "Duração (min)": st.column_config.NumberColumn(format="%.1f")
-            },
-            hide_index=True,
-            use_container_width=True
-        )
-    else:
-        st.warning("No records found", icon="⚠️")
+        # Gráfico por matéria
+        st.subheader("Tempo por Matéria")
+        resumo = df.groupby('Matéria')['Duração (min)'].sum().reset_index()
+        chart = alt.Chart(resumo).mark_bar().encode(
+            x='Matéria',
+            y='Duração (min)',
+            color=alt.Color('Matéria', legend=None),
+            tooltip=['Matéria', 'Duraçãot; (min)']
+        ).properties(height=300)
+        st.altair_chart(chart, use_container_width=True)
+        
+        # Gráfico semanal
+        st.subheader("Distribuição Semanal")
+        df['Dia'] = df['Data'].dt.day_name()
+        dias_ordem = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        df['Dia'] = pd.Categorical(df['Dia'], categories=dias_ordem, ordered=True)
+        weekly = df.groupby('Dia')['Duração (min)'].sum().reset_index()
+        
+        weekly_chart = alt.Chart(weekly).mark_bar().encode(
+            x=alt.X('Dia', title='Dia da Semana'),
+            y=alt.Y('Duração (min)', title='Minutos Estudados'),
+            color=alt.value('#2e86c1'),
+            tooltip=['Dia', 'Duraçãot; (min)']
+        ).properties(height=300)
+        st.altair_chart(weekly_chart, use_container_width=True)
+        
+    except Exception as erro:
+        st.error(f"Erro ao cargar dados: {erro}")
 
 def main():
-    # Connect to Google Sheets
-    try:
-        cliente_gs = conectar_google_sheets()
-        planilha = carregar_planilha(cliente_gs)
-        
-        if not verificar_estrutura_planilha(planilha):
-            st.stop()
-            
-        st.session_state.abas = carregar_abas(planilha)
-    except Exception as e:
-        st.error("Failed to connect to Google Sheets")
-        st.stop()
+    """Função principal"""
+    # Conexão com Google Sheets
+    if st.session_state.abas is None:
+        try:
+            cliente = conectar_google_sheets()
+            planilha = carregar_planilha(cliente)
+            inicializar_abas(planilha)
+        except Exception:
+            st.error("Falha ao conectar com o Google Sheets")
+            return
     
-    # App header
-    st.title("⏱️ STUDY TIMER")
+    # Interface principal
+    st.title("⏱️ CRONÔMETRO DE ESTUDOS")
     st.markdown("---")
     
-    # Control section
-    st.markdown("<h3 class='section-header'>CONTROL PANEL</h3>", unsafe_allow_html=True)
-    
+    # Controle de estudo
+    st.markdown("<h3 class='cabecalho-secao'>CONTROLE</h3>", unsafe_allow_html=True)
     col1, col2 = st.columns([3, 1])
+    
     with col1:
-        materia_selecionada = st.selectbox(
-            "SELECT SUBJECT:",
-            obter_materias(st.session_state.abas['materias']),
-            key='materia_select',
+        materia = st.selectbox(
+            "SELECIONE A MATÉRIA:",
+            obter_materias(),
             disabled=st.session_state.estudo_ativo
         )
     
     with col2:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
         if not st.session_state.estudo_ativo:
-            if st.button("▶️ START", type="primary", use_container_width=True):
-                handle_iniciar_estudo(materia_selecionada)
+            if st.button("▶️ INICIAR", use_container_width=True):
+                iniciar_estudo(materia)
     
-    # Display timer
-    display_cronometro()
+    # Exibe cronômetro
+    exibir_cronometro()
     
-    # Display history
+    # Exibe histórico e gráficos
+    exibir_historico()
+    
+    # Rodapé
     st.markdown("---")
-    display_historico()
-    
-    # Footer
-    st.markdown("---")
-    st.caption(f"© {datetime.now().year} Study Timer App | GCM Caldas Novas")
+    st.caption(f"© {datetime.now().year} Cronômetro de Estudos - GCM Caldas Novas")
 
 if __name__ == "__main__":
     main()
