@@ -5,7 +5,7 @@ import altair as alt
 from datetime import datetime, timedelta, date
 import time
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
 # Inicialização de variáveis de estado
 if 'estudo_ativo' not in st.session_state:
@@ -21,9 +21,13 @@ def conectar_google_sheets():
     """Conecta à API do Google Sheets usando credenciais."""
     try:
         scope = ['https://spreadsheets.google.com/feeds',
-                'https://www.googleapis.com/auth/drive']
-        credentials = ServiceAccountCredentials.from_json_keyfile_name('credenciais.json', scope)
-        cliente = gspread.authorize(credentials)
+                 'https://www.googleapis.com/auth/drive',
+                 'https://www.googleapis.com/auth/spreadsheets']  # Adicione a scope do spreadsheets aqui
+        creds = Credentials.from_service_account_info(
+            st.secrets["google_credentials"],
+            scopes=scope
+        )
+        cliente = gspread.authorize(creds)
         return cliente
     except Exception as e:
         st.error(f"Erro ao conectar ao Google Sheets: {e}")
@@ -43,7 +47,7 @@ def carregar_abas(planilha):
     """Carrega as abas da planilha."""
     if not planilha:
         return {}
-    
+
     try:
         return {
             'registros': planilha.worksheet("Registros"),
@@ -72,17 +76,17 @@ def obter_registros_df(aba_registros):
     try:
         if not aba_registros:
             return pd.DataFrame()
-        
+
         # Obtém todos os dados da planilha
         dados = aba_registros.get_all_values()
         if not dados:
             return pd.DataFrame()
-        
+
         # Converte para DataFrame
         cabecalho = dados[0]
         registros = dados[1:]
         df = pd.DataFrame(registros, columns=cabecalho)
-        
+
         return df
     except Exception as e:
         st.error(f"Erro ao obter registros: {e}")
@@ -100,15 +104,15 @@ def handle_parar_estudo(abas):
     if st.session_state.estudo_ativo and st.session_state.hora_inicio:
         duracao = datetime.now() - st.session_state.hora_inicio
         duracao_minutos = round(duracao.total_seconds() / 60, 1)
-        
+
         # Registra o estudo na planilha
         try:
             data_hoje = datetime.now().strftime("%d/%m/%Y")
             hora_atual = datetime.now().strftime("%H:%M")
-            
+
             novo_registro = [data_hoje, hora_atual, st.session_state.materia_atual, str(duracao_minutos)]
             abas['registros'].append_row(novo_registro)
-            
+
             # Atualiza o último registro na sessão
             st.session_state.ultimo_registro = {
                 'data': data_hoje,
@@ -116,11 +120,11 @@ def handle_parar_estudo(abas):
                 'materia': st.session_state.materia_atual,
                 'duracao': duracao_minutos
             }
-            
+
             st.success(f"Estudo finalizado: {duracao_minutos} minutos")
         except Exception as e:
             st.error(f"Erro ao registrar estudo: {e}")
-    
+
     # Reseta o estado
     st.session_state.estudo_ativo = False
     st.session_state.hora_inicio = None
@@ -129,17 +133,17 @@ def handle_parar_estudo(abas):
 def display_cronometro():
     """Exibe o cronômetro de estudo."""
     st.subheader("⏱️ Cronômetro")
-    
+
     if st.session_state.estudo_ativo and st.session_state.hora_inicio:
         # Calcula o tempo decorrido
         tempo_atual = datetime.now()
         duracao = tempo_atual - st.session_state.hora_inicio
         horas, resto = divmod(duracao.total_seconds(), 3600)
         minutos, segundos = divmod(resto, 60)
-        
+
         # Exibe o tempo formatado
         tempo_formatado = f"{int(horas):02d}:{int(minutos):02d}:{int(segundos):02d}"
-        
+
         # Destaque para o cronômetro ativo
         st.markdown(f"""
         <div class="highlight">
@@ -164,13 +168,13 @@ def display_ultimo_registro():
 def display_historico(abas):
     """Exibe o histórico de estudos."""
     st.subheader("Histórico de Estudos")
-    
+
     df_registros = obter_registros_df(abas['registros'])
-    
+
     if df_registros.empty:
         st.info("Nenhum registro de estudo encontrado.")
         return
-    
+
     # Configurações de exibição da tabela
     st.dataframe(
         df_registros,
@@ -181,24 +185,24 @@ def display_historico(abas):
 def display_resumo_materias(abas):
     """Exibe resumo por matéria."""
     st.subheader("Resumo por Matéria")
-    
+
     df_registros = obter_registros_df(abas['registros'])
-    
+
     if df_registros.empty:
         st.info("Sem dados para mostrar no resumo.")
         return
-    
+
     # Converte duração para número
     df_registros['Duração (min)'] = pd.to_numeric(df_registros['Duração (min)'], errors='coerce')
-    
+
     # Agrupa por matéria
     df_resumo = df_registros.groupby('Matéria').agg({
         'Duração (min)': 'sum'
     }).reset_index()
-    
+
     # Adiciona coluna de horas
     df_resumo['Total (horas)'] = df_resumo['Duração (min)'] / 60
-    
+
     # Ordena por duração
     df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
     col_tabela, col_grafico = st.columns([1, 2])
@@ -238,43 +242,43 @@ def gerar_grafico_semanal(df_registros):
         # Verifica se há dados suficientes
         if df_registros.empty:
             return None
-        
+
         # Certifica-se que a data está no formato correto
         df_registros['Data'] = pd.to_datetime(df_registros['Data'], dayfirst=True, errors='coerce')
-        
+
         # Filtra para os últimos 30 dias
         data_limite = datetime.now() - timedelta(days=30)
         df_recente = df_registros[df_registros['Data'] >= data_limite]
-        
+
         if df_recente.empty:
             return None
-        
+
         # Adiciona dia da semana
         df_recente['DiaSemana'] = df_recente['Data'].dt.day_name()
-        
+
         # Ordem dos dias da semana
         ordem_dias = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         nomes_dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
         mapa_dias = dict(zip(ordem_dias, nomes_dias))
-        
+
         # Traduz os nomes dos dias
         df_recente['DiaSemana'] = df_recente['DiaSemana'].map(mapa_dias)
-        
+
         # Agrupamento por dia da semana
         df_semanal = df_recente.groupby('DiaSemana').agg({
             'Duração (min)': 'sum'
         }).reset_index()
-        
+
         # Certifica que todos os dias da semana estão representados
         dias_faltantes = [dia for dia in nomes_dias if dia not in df_semanal['DiaSemana'].values]
         df_complemento = pd.DataFrame({'DiaSemana': dias_faltantes, 'Duração (min)': [0] * len(dias_faltantes)})
         df_semanal = pd.concat([df_semanal, df_complemento], ignore_index=True)
-        
+
         # Reordena os dias da semana
         ordem_dias_pt = dict(zip(nomes_dias, range(len(nomes_dias))))
         df_semanal['ordem'] = df_semanal['DiaSemana'].map(ordem_dias_pt)
         df_semanal = df_semanal.sort_values('ordem')
-        
+
         # Cria o gráfico
         grafico = alt.Chart(df_semanal).mark_bar().encode(
             x=alt.X('DiaSemana:N', sort=list(mapa_dias.values()), title='Dia da Semana'),
@@ -285,7 +289,7 @@ def gerar_grafico_semanal(df_registros):
             title='Distribuição de Estudos por Dia da Semana',
             height=300
         )
-        
+
         return grafico
     except Exception as e:
         st.error(f"Erro ao gerar gráfico semanal: {e}")
@@ -359,58 +363,56 @@ def main():
 
     st.title("⏱️ Cronômetro de Estudos - GCM Caldas Novas")
     st.caption("Acompanhe seu tempo de estudo para o concurso")
-
     # Conexão com Google Sheets e carregamento de dados
-    cliente_gs = conectar_google_sheets()
+cliente_gs = conectar_google_sheets()
+if cliente_gs:
     planilha = carregar_planilha(cliente_gs)
-    abas = carregar_abas(planilha)
+    if planilha:
+        abas = carregar_abas(planilha)
 
-    # Carregar matérias
-    lista_materias = obter_materias_lista(abas['materias'])
-    if not lista_materias:
-        st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
-        lista_materias = ["Matéria Padrão"]
+        # Carregar matérias
+        lista_materias = obter_materias_lista(abas['materias'])
+        if not lista_materias:
+            st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
+            lista_materias = ["Matéria Padrão"]
 
-    # Sidebar para iniciar nova sessão
-    with st.sidebar:
-        st.subheader("Iniciar Nova Sessão")
-        materia_selecionada = st.selectbox(
-            "Selecione a matéria:",
-            lista_materias,
-            index=0,
-            key='materia_select',
-            disabled=st.session_state.estudo_ativo
-        )
-        if not st.session_state.estudo_ativo:
-            if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
-                handle_iniciar_estudo(materia_selecionada)
-        else:
-            if st.button("⏹️ Parar Estudo", type="secondary", use_container_width=True):
-                handle_parar_estudo(abas)
+        # Sidebar para iniciar nova sessão
+        with st.sidebar:
+            st.subheader("Iniciar Nova Sessão")
+            materia_selecionada = st.selectbox(
+                "Selecione a matéria:",
+                lista_materias,
+                index=0,
+                key='materia_select',
+                disabled=st.session_state.estudo_ativo
+            )
+            if not st.session_state.estudo_ativo:
+                if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
+                    handle_iniciar_estudo(materia_selecionada)
+            else:
+                if st.button("⏹️ Parar Estudo", type="secondary", use_container_width=True):
+                    handle_parar_estudo(abas)
 
-        st.markdown("---")
-        display_ultimo_registro()
+            st.markdown("---")
+            display_ultimo_registro()
 
-    # Layout principal
-    col_direita = st.container()
-    with col_direita:
-        display_cronometro()
+        # Layout principal
+        col_direita = st.container()
+        with col_direita:
+            display_cronometro()
 
-        st.markdown("---")
-        tab_historico, tab_resumo, tab_padroes = st.tabs(["📋 Histórico", "📊 Resumo por Matéria", "📅 Padrões Semanais"])
+            st.markdown("---")
+            tab_historico, tab_resumo, tab_padroes = st.tabs(["📋 Histórico", "📊 Resumo por Matéria", "📅 Padrões Semanais"])
 
-        with tab_historico:
-            display_historico(abas)
+            with tab_historico:
+                display_historico(abas)
 
-        with tab_resumo:
-            display_resumo_materias(abas)
+            with tab_resumo:
+                display_resumo_materias(abas)
 
-        with tab_padroes:
-            display_analise_padroes(abas)
+            with tab_padroes:
+                display_analise_padroes(abas)
 
-    # Rodapé
-    st.markdown("---")
-    st.caption(f"Desenvolvido para GCM Caldas Novas | {datetime.now().year}")
-
-if __name__ == "__main__":
-    main()
+# Rodapé
+st.markdown("---")
+st.caption(f"Desenvolvido para GCM Caldas Novas | {datetime.now().year}")
