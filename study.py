@@ -141,20 +141,20 @@ def display_cronometro():
             segundos = int(duracao.total_seconds() % 60)
             tempo_formatado = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
             cronometro_placeholder.markdown(f"""
-                <div style="background-color: black; color: white; padding: 10px; border-radius: 10px; font-size: 4em; text-align: center; font-family: 'Digital-7', sans-serif; font-weight: bold;">
+                <div style="background-color: black; color: white; padding: 10px; border-radius: 10px; font-size: 8em; text-align: center; font-family: 'Digital-7', sans-serif; font-weight: bold;">
                     {tempo_formatado}
                 </div>
             """, unsafe_allow_html=True)
             time.sleep(1)
         else:
             cronometro_placeholder.markdown(f"""
-                <div style="background-color: black; color: white; padding: 10px; border-radius: 10px; font-size: 4em; text-align: center; font-family: 'Digital-7', sans-serif; font-weight: bold;">
+                <div style="background-color: black; color: white; padding: 10px; border-radius: 10px; font-size: 8em; text-align: center; font-family: 'Digital-7', sans-serif; font-weight: bold;">
                     00:00:00
                 </div>
             """, unsafe_allow_html=True)
     else:
         cronometro_placeholder.markdown(f"""
-            <div style="background-color: black; color: white; padding: 10px; border-radius: 10px; font-size: 4em; text-align: center; font-family: 'Digital-7', sans-serif; font-weight: bold;">
+            <div style="background-color: black; color: white; padding: 10px; border-radius: 10px; font-size: 8em; text-align: center; font-family: 'Digital-7', sans-serif; font-weight: bold;">
                 00:00:00
             </div>
         """, unsafe_allow_html=True)
