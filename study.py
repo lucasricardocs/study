@@ -7,59 +7,6 @@ from google.oauth2.service_account import Credentials
 import time
 import pytz
 
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #1c1c1e; /* Cinza escuro principal (iPhone) */
-        color: #f0f0f7; /* Texto claro (iPhone) */
-    }
-    .st-emotion-cache-r421ms { /* Sidebar background */
-        background-color: #2c2c2e; /* Cinza um pouco mais claro (iPhone) */
-        color: #f0f0f7;
-        border-right: 1px solid #3a3a3c; /* Linha divisória sutil */
-    }
-    .st-emotion-cache-6qob1r,
-    .st-emotion-cache-0 { /* Main content background */
-        background-color: #1c1c1e;
-        color: #f0f0f7;
-    }
-    .st-emotion-cache-16txtl3 { /* Dataframe background */
-        background-color: #3a3a3c; /* Cinza para dataframes */
-        color: #f0f0f7;
-        border: 1px solid #4a4a4d; /* Borda sutil */
-    }
-    .st-emotion-cache-1y4p8pa { /* Widget labels */
-        color: #e0e0e7; /* Cinza claro para labels */
-    }
-    .st-emotion-cache-1aehpzi { /* Widget input fields */
-        background-color: #3a3a3c; /* Cinza para inputs */
-        color: #f0f0f7;
-        border: 1px solid #4a4a4d;
-        border-radius: 5px;
-    }
-    div.stButton > button {
-        background-color: #3a3a3c;
-        color: #f0f0f7;
-        border: 1px solid #4a4a4d;
-        border-radius: 5px;
-    }
-    div.stButton > button:hover {
-        background-color: #4a4a4d;
-    }
-    .streamlit-expanderHeader {
-        color: #e0e0e7;
-        border-bottom: 1px solid #3a3a3c;
-    }
-    .streamlit-expanderContent {
-        color: #f0f0f7;
-        background-color: #1c1c1e;
-    }
-    /* Adicione mais estilos conforme necessário */
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 # --- Initialization ---
 if 'estudo_ativo' not in st.session_state:
