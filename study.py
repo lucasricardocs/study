@@ -318,7 +318,7 @@ def display_resumo_materias(abas):
         return
 
     df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
-    col_tabela, col_grafico = st.columns([1, 2])
+    col_tabela, col_grafico = st.columns([1, 1])
 
     with col_tabela:
         st.dataframe(
