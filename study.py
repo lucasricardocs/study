@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 from gspread.exceptions import SpreadsheetNotFound, APIError
+import random
 
 # Configuração da página
 st.set_page_config(
@@ -113,9 +114,9 @@ def obter_registros_df(aba_registros):
         return pd.DataFrame()
 
 @st.cache_data(ttl=CACHE_TTL)
-def obter_materias_lista(aba_materias):
+def obter_materias_lista(_aba_materias):
     try:
-        return api_request_with_retry(aba_materias.col_values, 1)[1:]
+        return api_request_with_retry(_aba_materias.col_values, 1)[1:]
     except Exception as erro:
         st.error(f"Erro ao carregar matérias: {erro}")
         return ["Matéria Padrão"]
@@ -259,6 +260,7 @@ def display_cronometro():
             with placeholder_cronometro.container():
                 st.markdown(f"<p class='timer-display'>{formatar_duracao(tempo_decorrido)}</p>", unsafe_allow_html=True)
                 col_info1, col_info2, col_botao = st.columns(3)
+                col_info1.metric("Início", st.session_state.inicio_estudo.strftime("%H:%M:%S"))
                 col_info2.metric("Matéria", st.session_state.materia_atual)
                 if col_botao.button("⏹️ Parar agora", key=botao_parar_key):
                     st.session_state.estudo_ativo = False
@@ -307,7 +309,6 @@ def display_historico(abas):
         hide_index=True,
         use_container_width=True
     )
-
 def display_resumo_materias(abas):
     st.subheader("Progresso por Matéria")
     df_resumo = obter_resumo_df(abas['resumo'])
