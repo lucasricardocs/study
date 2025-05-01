@@ -12,7 +12,7 @@ import random
 st.set_page_config(
     page_title="Cronômetro de Estudos",
     page_icon="⏱️",
-    layout="wide"  # Layout mais amplo para melhor organização
+    layout="wide"
 )
 
 # Constantes
@@ -426,10 +426,8 @@ def main():
         st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
         lista_materias = ["Matéria Padrão"]
 
-    # Layout principal em duas colunas
-    col_esquerda, col_direita = st.columns([1, 2])
-
-    with col_esquerda:
+    # Sidebar para iniciar nova sessão
+    with st.sidebar:
         st.subheader("Iniciar Nova Sessão")
         materia_selecionada = st.selectbox(
             "Selecione a matéria:",
@@ -448,6 +446,8 @@ def main():
         st.markdown("---")
         display_ultimo_registro()
 
+    # Layout principal
+    col_direita = st.container()
     with col_direita:
         display_cronometro()
 
