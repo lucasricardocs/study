@@ -327,158 +327,158 @@ def display_resumo_materias(abas):
     st.warning("A aba 'Resumo' não possui as colunas esperadas ('Matéria', 'Duração (min)').")
     return
     
-        df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
-        col_tabela, col_grafico = st.columns([1, 2])
-    
-        with col_tabela:
-            st.dataframe(
-                df_resumo,
-                column_config={
-                    "Duração (min)": st.column_config.ProgressColumn(
-                        "Progresso",
-                        help="Tempo estudado em minutos",
-                        format="%.1f",
-                        min_value=0,
-                        max_value=df_resumo['Duração (min)'].max() * 1.1 if not df_resumo.empty and df_resumo['Duração (min)'].max() > 0 else 1
-                    ),
-                    "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
-                },
-                hide_index=True,
-                use_container_width=True
-            )
-    
-        with col_grafico:
-            if not df_resumo.empty:
-                grafico = alt.Chart(df_resumo).mark_bar().encode(
-                    x=alt.X('Matéria:N', sort='-y', title=None),
-                    y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
-                    color=alt.Color('Matéria:N', legend=None),
-                    tooltip=['Matéria', 'Duração (min)', alt.Tooltip('Total (horas)', format=".2f")]
-                ).properties(height=400)
-                st.altair_chart(grafico, use_container_width=True)
-            else:
-                st.info("Nenhum dado de resumo para exibir no gráfico.")
-    
-    def display_analise_padroes(abas):
-        st.subheader("Análise de Padrões")
-        df_registros = obter_registros_df(abas['registros'])
-    
-        if df_registros.empty:
-            st.warning("Sem dados suficientes para análise de padrões", icon="⚠️")
-            st.info("Registre mais sessões de estudo para ver seus padrões.")
-            return
-    
-        df_registros['Duração (min)'] = pd.to_numeric(df_registros['Duração (min)'], errors='coerce')
-        grafico_semanal = gerar_grafico_semanal(df_registros)
-        if grafico_semanal:
-            st.altair_chart(grafico_semanal, use_container_width=True)
+    df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
+    col_tabela, col_grafico = st.columns([1, 2])
+
+    with col_tabela:
+        st.dataframe(
+            df_resumo,
+            column_config={
+                "Duração (min)": st.column_config.ProgressColumn(
+                    "Progresso",
+                    help="Tempo estudado em minutos",
+                    format="%.1f",
+                    min_value=0,
+                    max_value=df_resumo['Duração (min)'].max() * 1.1 if not df_resumo.empty and df_resumo['Duração (min)'].max() > 0 else 1
+                ),
+                "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+
+    with col_grafico:
+        if not df_resumo.empty:
+            grafico = alt.Chart(df_resumo).mark_bar().encode(
+                x=alt.X('Matéria:N', sort='-y', title=None),
+                y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
+                color=alt.Color('Matéria:N', legend=None),
+                tooltip=['Matéria', 'Duração (min)', alt.Tooltip('Total (horas)', format=".2f")]
+            ).properties(height=400)
+            st.altair_chart(grafico, use_container_width=True)
         else:
-            st.info("Dados insuficientes para gerar visualização semanal (requer dados dos últimos 30 dias).")
-    
-        total_horas = df_registros['Duração (min)'].sum() / 60
-        total_sessoes = len(df_registros)
-        duracao_media = df_registros['Duração (min)'].mean() if not df_registros.empty else 0
-    
-        col_metricas = st.columns(3)
-        col_metricas[0].metric("Total de Horas", f"{total_horas:.2f}h")
-        col_metricas[1].metric("Total de Sessões", f"{total_sessoes}")
-        col_metricas[2].metric("Duração Média", f"{duracao_media:.1f} min")
-    
-        st.subheader("Dicas Personalizadas")
-        if duracao_media < 25 and total_sessoes > 0:
-            st.info("📌 Suas sessões têm duração média curta. Experimente a técnica Pomodoro (25 minutos de estudo focado).")
-        elif duracao_media > 90:
-            st.info("📌 Sessões de estudo muito longas podem diminuir a retenção. Considere fazer pausas a cada 50-60 minutos.")
-    
-        if total_sessoes > 0:
-            df_registros['Data'] = pd.to_datetime(df_registros['Data'], dayfirst=True, errors='coerce')
-            dias_unicos = df_registros['Data'].dt.date.nunique()
-            frequencia = total_sessoes / dias_unicos if dias_unicos > 0 else 0
-            if frequencia < 1:
-                st.info("🗓️ Parece que você não estuda todos os dias. Tentar estudar um pouco diariamente pode ajudar na consistência.")
-            elif frequencia > 2:
-                st.info("🚀 Você está com um ritmo intenso de estudos! Certifique-se de incluir descanso para evitar o esgotamento.")
+            st.info("Nenhum dado de resumo para exibir no gráfico.")
+
+def display_analise_padroes(abas):
+    st.subheader("Análise de Padrões")
+    df_registros = obter_registros_df(abas['registros'])
+
+    if df_registros.empty:
+        st.warning("Sem dados suficientes para análise de padrões", icon="⚠️")
+        st.info("Registre mais sessões de estudo para ver seus padrões.")
+        return
+
+    df_registros['Duração (min)'] = pd.to_numeric(df_registros['Duração (min)'], errors='coerce')
+    grafico_semanal = gerar_grafico_semanal(df_registros)
+    if grafico_semanal:
+        st.altair_chart(grafico_semanal, use_container_width=True)
+    else:
+        st.info("Dados insuficientes para gerar visualização semanal (requer dados dos últimos 30 dias).")
+
+    total_horas = df_registros['Duração (min)'].sum() / 60
+    total_sessoes = len(df_registros)
+    duracao_media = df_registros['Duração (min)'].mean() if not df_registros.empty else 0
+
+    col_metricas = st.columns(3)
+    col_metricas[0].metric("Total de Horas", f"{total_horas:.2f}h")
+    col_metricas[1].metric("Total de Sessões", f"{total_sessoes}")
+    col_metricas[2].metric("Duração Média", f"{duracao_media:.1f} min")
+
+    st.subheader("Dicas Personalizadas")
+    if duracao_media < 25 and total_sessoes > 0:
+        st.info("📌 Suas sessões têm duração média curta. Experimente a técnica Pomodoro (25 minutos de estudo focado).")
+    elif duracao_media > 90:
+        st.info("📌 Sessões de estudo muito longas podem diminuir a retenção. Considere fazer pausas a cada 50-60 minutos.")
+
+    if total_sessoes > 0:
+        df_registros['Data'] = pd.to_datetime(df_registros['Data'], dayfirst=True, errors='coerce')
+        dias_unicos = df_registros['Data'].dt.date.nunique()
+        frequencia = total_sessoes / dias_unicos if dias_unicos > 0 else 0
+        if frequencia < 1:
+            st.info("🗓️ Parece que você não estuda todos os dias. Tentar estudar um pouco diariamente pode ajudar na consistência.")
+        elif frequencia > 2:
+            st.info("🚀 Você está com um ritmo intenso de estudos! Certifique-se de incluir descanso para evitar o esgotamento.")
+    else:
+        st.info("📊 Comece a registrar seus estudos para receber dicas personalizadas!")
+
+def main():
+    """Função principal para executar a aplicação Streamlit."""
+    # Estilização CSS personalizada
+    st.markdown("""
+    <style>
+        div.stButton > button:first-child {
+            height: 3em;
+            font-weight: bold;
+        }
+        .highlight {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #4682b4;
+            margin: 10px 0;
+        }
+        .timer-display {
+            font-size: 3rem !important;
+            font-weight: bold !important;
+            text-align: center !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("⏱️ Cronômetro de Estudos - GCM Caldas Novas")
+    st.caption("Acompanhe seu tempo de estudo para o concurso")
+
+    # Conexão com Google Sheets e carregamento de dados
+    cliente_gs = conectar_google_sheets()
+    planilha = carregar_planilha(cliente_gs)
+    abas = carregar_abas(planilha)
+
+    # Carregar matérias
+    lista_materias = obter_materias_lista(abas['materias'])
+    if not lista_materias:
+        st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
+        lista_materias = ["Matéria Padrão"]
+
+    # Sidebar para iniciar nova sessão
+    with st.sidebar:
+        st.subheader("Iniciar Nova Sessão")
+        materia_selecionada = st.selectbox(
+            "Selecione a matéria:",
+            lista_materias,
+            index=0,
+            key='materia_select',
+            disabled=st.session_state.estudo_ativo
+        )
+        if not st.session_state.estudo_ativo:
+            if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
+                handle_iniciar_estudo(materia_selecionada)
         else:
-            st.info("📊 Comece a registrar seus estudos para receber dicas personalizadas!")
-    
-    def main():
-        """Função principal para executar a aplicação Streamlit."""
-        # Estilização CSS personalizada
-        st.markdown("""
-        <style>
-            div.stButton > button:first-child {
-                height: 3em;
-                font-weight: bold;
-            }
-            .highlight {
-                background-color: #f0f8ff;
-                padding: 15px;
-                border-radius: 8px;
-                border-left: 5px solid #4682b4;
-                margin: 10px 0;
-            }
-            .timer-display {
-                font-size: 3rem !important;
-                font-weight: bold !important;
-                text-align: center !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-    
-        st.title("⏱️ Cronômetro de Estudos - GCM Caldas Novas")
-        st.caption("Acompanhe seu tempo de estudo para o concurso")
-    
-        # Conexão com Google Sheets e carregamento de dados
-        cliente_gs = conectar_google_sheets()
-        planilha = carregar_planilha(cliente_gs)
-        abas = carregar_abas(planilha)
-    
-        # Carregar matérias
-        lista_materias = obter_materias_lista(abas['materias'])
-        if not lista_materias:
-            st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
-            lista_materias = ["Matéria Padrão"]
-    
-        # Sidebar para iniciar nova sessão
-        with st.sidebar:
-            st.subheader("Iniciar Nova Sessão")
-            materia_selecionada = st.selectbox(
-                "Selecione a matéria:",
-                lista_materias,
-                index=0,
-                key='materia_select',
-                disabled=st.session_state.estudo_ativo
-            )
-            if not st.session_state.estudo_ativo:
-                if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
-                    handle_iniciar_estudo(materia_selecionada)
-            else:
-                if st.button("⏹️ Parar Estudo", type="secondary", use_container_width=True):
-                    handle_parar_estudo(abas)
-    
-            st.markdown("---")
-            display_ultimo_registro()
-    
-        # Layout principal
-        col_direita = st.container()
-        with col_direita:
-            display_cronometro()
-    
-            st.markdown("---")
-            tab_historico, tab_resumo, tab_padroes = st.tabs(["📋 Histórico", "📊 Resumo por Matéria", "📅 Padrões Semanais"])
-    
-            with tab_historico:
-                display_historico(abas)
-    
-            with tab_resumo:
-                display_resumo_materias(abas)
-    
-            with tab_padroes:
-                display_analise_padroes(abas)
-    
-        # Rodapé
+            if st.button("⏹️ Parar Estudo", type="secondary", use_container_width=True):
+                handle_parar_estudo(abas)
+
         st.markdown("---")
-        st.caption(f"Desenvolvido para GCM Caldas Novas | {datetime.now().year}")
-    
-    if __name__ == "__main__":
-        main()
+        display_ultimo_registro()
+
+    # Layout principal
+    col_direita = st.container()
+    with col_direita:
+        display_cronometro()
+
+        st.markdown("---")
+        tab_historico, tab_resumo, tab_padroes = st.tabs(["📋 Histórico", "📊 Resumo por Matéria", "📅 Padrões Semanais"])
+
+        with tab_historico:
+            display_historico(abas)
+
+        with tab_resumo:
+            display_resumo_materias(abas)
+
+        with tab_padroes:
+            display_analise_padroes(abas)
+
+    # Rodapé
+    st.markdown("---")
+    st.caption(f"Desenvolvido para GCM Caldas Novas | {datetime.now().year}")
+
+if __name__ == "__main__":
+    main()
