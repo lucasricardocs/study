@@ -11,33 +11,51 @@ st.markdown(
     """
     <style>
     body {
-        background-color: #1a1a1a; /* Cor de fundo escura */
-        color: #f0f0f0; /* Cor do texto clara */
+        background-color: #1c1c1e; /* Cinza escuro principal (iPhone) */
+        color: #f0f0f7; /* Texto claro (iPhone) */
     }
     .st-emotion-cache-r421ms { /* Sidebar background */
-        background-color: #262626;
-        color: #f0f0f0;
+        background-color: #2c2c2e; /* Cinza um pouco mais claro (iPhone) */
+        color: #f0f0f7;
+        border-right: 1px solid #3a3a3c; /* Linha divisória sutil */
     }
-    .st-emotion-cache-6qob1r { /* Main content background */
-        background-color: #1a1a1a;
-        color: #f0f0f0;
-    }
-    .st-emotion-cache-0 { /* Streamlit app container */
-        background-color: #1a1a1a;
-        color: #f0f0f0;
+    .st-emotion-cache-6qob1r,
+    .st-emotion-cache-0 { /* Main content background */
+        background-color: #1c1c1e;
+        color: #f0f0f7;
     }
     .st-emotion-cache-16txtl3 { /* Dataframe background */
-        background-color: #333333;
-        color: #f0f0f0;
+        background-color: #3a3a3c; /* Cinza para dataframes */
+        color: #f0f0f7;
+        border: 1px solid #4a4a4d; /* Borda sutil */
     }
     .st-emotion-cache-1y4p8pa { /* Widget labels */
-        color: #f0f0f0;
+        color: #e0e0e7; /* Cinza claro para labels */
     }
     .st-emotion-cache-1aehpzi { /* Widget input fields */
-        background-color: #444444;
-        color: #f0f0f0;
+        background-color: #3a3a3c; /* Cinza para inputs */
+        color: #f0f0f7;
+        border: 1px solid #4a4a4d;
+        border-radius: 5px;
     }
-    /* Adicione mais estilos conforme necessário para outros elementos */
+    div.stButton > button {
+        background-color: #3a3a3c;
+        color: #f0f0f7;
+        border: 1px solid #4a4a4d;
+        border-radius: 5px;
+    }
+    div.stButton > button:hover {
+        background-color: #4a4a4d;
+    }
+    .streamlit-expanderHeader {
+        color: #e0e0e7;
+        border-bottom: 1px solid #3a3a3c;
+    }
+    .streamlit-expanderContent {
+        color: #f0f0f7;
+        background-color: #1c1c1e;
+    }
+    /* Adicione mais estilos conforme necessário */
     </style>
     """,
     unsafe_allow_html=True,
