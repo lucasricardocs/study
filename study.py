@@ -159,7 +159,7 @@ def atualizar_resumo_direto(aba_resumo, materia, duracao):
     try:
         resumo_data = api_request_with_retry(aba_resumo.get_all_values)
         df_resumo = pd.DataFrame(resumo_data[1:], columns=resumo_data[0])
-        df_resumo['Duração (min)'] = pd.to_numeric(df_resumo['Duração (min)'], errors='coerce', errors='ignore').fillna(0)
+        df_resumo['Duração (min)'] = pd.to_numeric(df_resumo['Duração (min)'], errors='coerce').fillna(0)
 
         if materia in df_resumo['Matéria'].values:
             df_resumo.loc[df_resumo['Matéria'] == materia, 'Duração (min)'] += duracao
