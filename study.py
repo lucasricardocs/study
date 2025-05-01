@@ -98,6 +98,7 @@ def handle_iniciar_estudo(materia_selecionada):
     st.session_state.hora_inicio = datetime.now()
     st.session_state.materia_atual = materia_selecionada
     st.success(f"Estudo iniciado: {materia_selecionada}")
+    st.rerun() # Adiciona para atualizar a interface imediatamente
 
 def handle_parar_estudo(abas):
     """Finaliza a sessão de estudo atual e registra na planilha."""
@@ -129,6 +130,7 @@ def handle_parar_estudo(abas):
     st.session_state.estudo_ativo = False
     st.session_state.hora_inicio = None
     st.session_state.materia_atual = None
+    st.rerun() # Adiciona para atualizar a interface imediatamente
 
 def display_cronometro():
     """Exibe o cronômetro de estudo."""
@@ -205,36 +207,35 @@ def display_resumo_materias(abas):
 
     # Ordena por duração
     df_resumo = df_resumo.sort_values('Duração (min)', ascending=False)
-    col_tabela, col_grafico = st.columns([1, 2])
 
-    with col_tabela:
-        st.dataframe(
-            df_resumo,
-            column_config={
-                "Duração (min)": st.column_config.ProgressColumn(
-                    "Progresso",
-                    help="Tempo estudado em minutos",
-                    format="%.1f",
-                    min_value=0,
-                    max_value=df_resumo['Duração (min)'].max() * 1.1 if not df_resumo.empty and df_resumo['Duração (min)'].max() > 0 else 1
-                ),
-                "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+    # Exibe a tabela
+    st.dataframe(
+        df_resumo,
+        column_config={
+            "Duração (min)": st.column_config.ProgressColumn(
+                "Progresso",
+                help="Tempo estudado em minutos",
+                format="%.1f",
+                min_value=0,
+                max_value=df_resumo['Duração (min)'].max() * 1.1 if not df_resumo.empty and df_resumo['Duração (min)'].max() > 0 else 1
+            ),
+            "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
+        },
+        hide_index=True,
+        use_container_width=True
+    )
 
-    with col_grafico:
-        if not df_resumo.empty:
-            grafico = alt.Chart(df_resumo).mark_bar().encode(
-                x=alt.X('Matéria:N', sort='-y', title=None),
-                y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
-                color=alt.Color('Matéria:N', legend=None),
-                tooltip=['Matéria', 'Duração (min)', alt.Tooltip('Total (horas)', format=".2f")]
-            ).properties(height=400)
-            st.altair_chart(grafico, use_container_width=True)
-        else:
-            st.info("Nenhum dado de resumo para exibir no gráfico.")
+    # Exibe o gráfico abaixo da tabela
+    if not df_resumo.empty:
+        grafico = alt.Chart(df_resumo).mark_bar().encode(
+            x=alt.X('Matéria:N', sort='-y', title=None),
+            y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
+            color=alt.Color('Matéria:N', legend=None),
+            tooltip=['Matéria', 'Duração (min)', alt.Tooltip('Total (horas)', format=".2f")]
+        ).properties(height=400)
+        st.altair_chart(grafico, use_container_width=True)
+    else:
+        st.info("Nenhum dado de resumo para exibir no gráfico.")
 
 def gerar_grafico_semanal(df_registros):
     """Gera gráfico semanal de estudos."""
@@ -332,7 +333,7 @@ def display_analise_padroes(abas):
         frequencia = total_sessoes / dias_unicos if dias_unicos > 0 else 0
         if frequencia < 1:
             st.info("🗓️ Parece que você não estuda todos os dias. Tentar estudar um pouco diariamente pode ajudar na consistência.")
-        elif frequencia > 2:
+        elif frequencia
             st.info("🚀 Você está com um ritmo intenso de estudos! Certifique-se de incluir descanso para evitar o esgotamento.")
     else:
         st.info("📊 Comece a registrar seus estudos para receber dicas personalizadas!")
@@ -354,65 +355,69 @@ def main():
             margin: 10px 0;
         }
         .timer-display {
-            font-size: 3rem !important;
+            font-size: 5rem !important; /* Aumenta significativamente o tamanho da fonte */
             font-weight: bold !important;
             text-align: center !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("⏱️ Cronômetro de Estudos - GCM Caldas Novas")
+    st.title("Cronômetro de Estudos para GCM Caldas Novas") # Adiciona o título no topo
     st.caption("Acompanhe seu tempo de estudo para o concurso")
+
     # Conexão com Google Sheets e carregamento de dados
-cliente_gs = conectar_google_sheets()
-if cliente_gs:
-    planilha = carregar_planilha(cliente_gs)
-    if planilha:
-        abas = carregar_abas(planilha)
+    cliente_gs = conectar_google_sheets()
+    if cliente_gs:
+        planilha = carregar_planilha(cliente_gs)
+        if planilha:
+            abas = carregar_abas(planilha)
 
-        # Carregar matérias
-        lista_materias = obter_materias_lista(abas['materias'])
-        if not lista_materias:
-            st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
-            lista_materias = ["Matéria Padrão"]
+            # Carregar matérias
+            lista_materias = obter_materias_lista(abas['materias'])
+            if not lista_materias:
+                st.warning("Nenhuma matéria cadastrada. Adicione matérias na aba 'Materias' da planilha.")
+                lista_materias = ["Matéria Padrão"]
 
-        # Sidebar para iniciar nova sessão
-        with st.sidebar:
-            st.subheader("Iniciar Nova Sessão")
-            materia_selecionada = st.selectbox(
-                "Selecione a matéria:",
-                lista_materias,
-                index=0,
-                key='materia_select',
-                disabled=st.session_state.estudo_ativo
-            )
-            if not st.session_state.estudo_ativo:
-                if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
-                    handle_iniciar_estudo(materia_selecionada)
-            else:
-                if st.button("⏹️ Parar Estudo", type="secondary", use_container_width=True):
-                    handle_parar_estudo(abas)
+            # Sidebar para iniciar nova sessão
+            with st.sidebar:
+                st.subheader("Iniciar Nova Sessão")
+                materia_selecionada = st.selectbox(
+                    "Selecione a matéria:",
+                    lista_materias,
+                    index=0,
+                    key='materia_select',
+                    disabled=st.session_state.estudo_ativo
+                )
+                if not st.session_state.estudo_ativo:
+                    if st.button("▶️ Iniciar Estudo", type="primary", use_container_width=True):
+                        handle_iniciar_estudo(materia_selecionada)
+                else:
+                    if st.button("⏹️ Parar Estudo", type="secondary", use_container_width=True):
+                        handle_parar_estudo(abas)
 
-            st.markdown("---")
-            display_ultimo_registro()
+                st.markdown("---")
+                display_ultimo_registro()
 
-        # Layout principal
-        col_direita = st.container()
-        with col_direita:
-            display_cronometro()
+            # Layout principal
+            col_direita = st.container()
+            with col_direita:
+                display_cronometro()
 
-            st.markdown("---")
-            tab_historico, tab_resumo, tab_padroes = st.tabs(["📋 Histórico", "📊 Resumo por Matéria", "📅 Padrões Semanais"])
+                st.markdown("---")
+                tab_historico, tab_resumo, tab_padroes = st.tabs(["📋 Histórico", "📊 Resumo por Matéria", "📅 Padrões Semanais"])
 
-            with tab_historico:
-                display_historico(abas)
+                with tab_historico:
+                    display_historico(abas)
 
-            with tab_resumo:
-                display_resumo_materias(abas)
+                with tab_resumo:
+                    display_resumo_materias(abas)
 
-            with tab_padroes:
-                display_analise_padroes(abas)
+                with tab_padroes:
+                    display_analise_padroes(abas)
 
-# Rodapé
-st.markdown("---")
-st.caption(f"Desenvolvido para GCM Caldas Novas | {datetime.now().year}")
+    # Rodapé
+    st.markdown("---")
+    st.caption(f"Desenvolvido para GCM Caldas Novas | {datetime.now().year}")
+
+if __name__ == "__main__":
+    main()
