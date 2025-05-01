@@ -184,9 +184,8 @@ def display_historico(abas):
         )
     else:
         st.info("Nenhum registro de estudo encontrado.")
-
 def display_resumo_materias(abas):
-    st.subheader("Resumo por Matéria")
+    st.markdown("<h2 style='font-family: \"Digital-7\", sans-serif;'>Resumo por Matéria</h2>", unsafe_allow_html=True)
     df_registros = obter_registros_df(abas['registros'])
     if df_registros.empty:
         st.info("Sem dados para mostrar no resumo.")
@@ -219,7 +218,7 @@ def display_resumo_materias(abas):
             y=alt.Y('Duração (min):Q', title='Minutos Estudados'),
             color=alt.Color('Matéria:N', legend=None),
             tooltip=['Matéria', alt.Tooltip('Duração (min)', format=".2f"), alt.Tooltip('Total (horas)', format=".2f")]
-        ).properties(height=400)
+        ).properties(height=500)  # Aumentei a altura para 500 pixels
         st.altair_chart(grafico, use_container_width=True)
     else:
         st.info("Nenhum dado de resumo para exibir no gráfico.")
@@ -252,13 +251,13 @@ def gerar_grafico_semanal(df_registros):
             tooltip=['DiaSemana', alt.Tooltip('Duração (min)', format=".1f")]
         ).properties(
             title='Distribuição de Estudos por Dia da Semana',
-            height=300
+            height=400  # Aumentei a altura para 400 pixels
         )
         return grafico
     except Exception as e:
         st.error(f"Erro ao gerar gráfico semanal: {e}")
         return None
-
+        
 def display_analise_padroes(abas):
     st.subheader("Análise de Padrões")
     df_registros = obter_registros_df(abas['registros'])
