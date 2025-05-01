@@ -7,6 +7,42 @@ from google.oauth2.service_account import Credentials
 import time
 import pytz
 
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #1a1a1a; /* Cor de fundo escura */
+        color: #f0f0f0; /* Cor do texto clara */
+    }
+    .st-emotion-cache-r421ms { /* Sidebar background */
+        background-color: #262626;
+        color: #f0f0f0;
+    }
+    .st-emotion-cache-6qob1r { /* Main content background */
+        background-color: #1a1a1a;
+        color: #f0f0f0;
+    }
+    .st-emotion-cache-0 { /* Streamlit app container */
+        background-color: #1a1a1a;
+        color: #f0f0f0;
+    }
+    .st-emotion-cache-16txtl3 { /* Dataframe background */
+        background-color: #333333;
+        color: #f0f0f0;
+    }
+    .st-emotion-cache-1y4p8pa { /* Widget labels */
+        color: #f0f0f0;
+    }
+    .st-emotion-cache-1aehpzi { /* Widget input fields */
+        background-color: #444444;
+        color: #f0f0f0;
+    }
+    /* Adicione mais estilos conforme necessário para outros elementos */
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # --- Initialization ---
 if 'estudo_ativo' not in st.session_state:
     st.session_state.estudo_ativo = False
