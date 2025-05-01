@@ -140,7 +140,7 @@ def display_cronometro():
             segundos = int(duracao.total_seconds() % 60)
             tempo_formatado = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
             cronometro_placeholder.markdown(f"""
-                <div style="background-color: black; color: white; padding: 20px; border-radius: 10px; font-size: 3em; text-align: center;">
+                <div style="background-color: black; color: white; padding: 20px; border-radius: 10px; font-size: 9em; text-align: center;">
                     {tempo_formatado}
                 </div>
             """, unsafe_allow_html=True)
