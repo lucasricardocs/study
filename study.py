@@ -280,35 +280,26 @@ def display_historico(abas):
         st.info("Comece a registrar suas sessões de estudo!")
         return
 
-    col_filtro1, col_filtro2 = st.columns(2)
-    with col_filtro1:
+    col_filtro = st.columns(1)
+    with col_filtro[0]:
         materias_unicas = ["Todas"] + sorted(df_registros['Matéria'].unique().tolist())
         filtro_materia = st.selectbox("Filtrar por matéria:", materias_unicas)
-
-    with col_filtro2:
-        df_registros['Data'] = pd.to_datetime(df_registros['Data'], dayfirst=True, errors='coerce')
-        min_data = df_registros['Data'].min().date()
-        max_data = df_registros['Data'].max().date()
-        intervalo_datas = st.date_input("Período:", value=(min_data, max_data), min_value=min_data, max_value=datetime.now().date())
 
     df_filtrado = df_registros.copy()
     if filtro_materia != "Todas":
         df_filtrado = df_filtrado[df_filtrado['Matéria'] == filtro_materia]
 
-    if isinstance(intervalo_datas, tuple) and len(intervalo_datas) == 2:
-        data_inicio, data_fim = intervalo_datas
-        df_filtrado = df_filtrado[(df_filtrado['Data'].dt.date >= data_inicio) & (df_filtrado['Data'].dt.date <= data_fim)]
+    total_minutos_estudados = df_filtrado['Duração (min)'].sum()
+    st.metric("Total de minutos estudados", f"{total_minutos_estudados:.2f} min")
 
     df_filtrado = df_filtrado.sort_values('Data', ascending=False)
-    total_minutos_periodo = df_filtrado['Duração (min)'].sum()
-    st.metric("Total de horas estudadas no período", f"{(total_minutos_periodo / 60):.2f}h")
-
     st.dataframe(
         df_filtrado,
         column_config={
             "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
             "Duração (min)": st.column_config.NumberColumn("Minutos", format="%.1f")
-        },hide_index=True,
+        },
+        hide_index=True,
         use_container_width=True
     )
 
@@ -338,7 +329,8 @@ def display_resumo_materias(abas):
                 "Total (horas)": st.column_config.NumberColumn("Horas", format="%.2f h")
             },
             hide_index=True,
-            use_container_width=True
+            use_container
+            width=True
         )
 
     with col_grafico:
