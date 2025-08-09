@@ -4,7 +4,7 @@ import gspread
 import pandas as pd
 import altair as alt
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 from google.oauth2.service_account import Credentials
 from gspread.exceptions import SpreadsheetNotFound
 import warnings
@@ -14,18 +14,24 @@ import time
 warnings.filterwarnings('ignore', category=FutureWarning, message='.*observed=False.*')
 
 # --- Configurações Globais e Constantes ---
-SPREADSHEET_ID = '1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs'
-WORKSHEET_NAME = 'Registro'
+
+# O ID e o nome da aba agora são lidos do secrets.toml para maior portabilidade
+try:
+    SPREADSHEET_ID = st.secrets["spreadsheet"]["id"]
+    WORKSHEET_NAME = st.secrets["spreadsheet"]["name"]
+except KeyError:
+    st.error("Configurações da planilha não encontradas em st.secrets. Verifique o arquivo secrets.toml.")
+    st.stop()
+
 CONCURSO_DATE = datetime(2025, 9, 28) # Data do concurso
 
 # Dados do edital (para calcular o progresso ponderado)
-# CHAVE "MATÉRIA" FOI ALTERADA PARA "DISCIPLINAS"
 ED_DATA = {
     'Disciplinas': [
-        'LÍNGUA PORTUGUESA', 
-        'RLM', 
-        'INFORMÁTICA', 
-        'LEGISLAÇÃO', 
+        'LÍNGUA PORTUGUESA',
+        'RLM',
+        'INFORMÁTICA',
+        'LEGISLAÇÃO',
         'CONHECIMENTOS ESPECÍFICOS - ASSISTENTE EM ADMINISTRAÇÃO'
     ],
     'Total_Conteudos': [20, 15, 10, 15, 30],
@@ -41,7 +47,7 @@ def get_google_auth():
               'https://www.googleapis.com/auth/drive.readonly']
     try:
         if "google_credentials" not in st.secrets:
-            st.error("Credenciais do Google ('google_credentials') não encontradas em st.secrets. Configure o arquivo .streamlit/secrets.toml")
+            st.error("Credenciais do Google ('google_credentials') não encontradas. Configure o arquivo .streamlit/secrets.toml")
             return None
         
         credentials_dict = st.secrets["google_credentials"]
@@ -69,7 +75,7 @@ def get_worksheet():
             st.error(f"Planilha com ID '{SPREADSHEET_ID}' não encontrada.")
             return None
         except Exception as e:
-            st.error(f"Erro ao acessar a planilha '{WORKSHEET_NAME}': {e}")
+            st.error(f"Erro ao acessar a aba '{WORKSHEET_NAME}': {e}")
             return None
     return None
 
@@ -80,21 +86,13 @@ def read_sales_data():
     if not worksheet:
         st.info("⚠️ Usando dados de exemplo, pois não foi possível conectar ao Google Sheets.")
         
-        conteudos_do_edital = {
-            'LÍNGUA PORTUGUESA': ['Compreensão', 'Ortografia', 'Crase'],
-            'RLM': ['Estruturas lógicas', 'Lógica de argumentação'],
-            'INFORMÁTICA': ['MS-Windows', 'MS-Office'],
-            'LEGISLAÇÃO': ['Lei nº 8.112/90', 'Lei nº 11.091/2005'],
-            'CONHECIMENTOS ESPECÍFICOS - ASSISTENTE EM ADMINISTRAÇÃO': ['Noções de Administração', 'Gestão de processos']
-        }
-        
+        # Dados de exemplo agora usam as novas colunas
         sample_data = []
         np.random.seed(42)
-        for materia, conteudos in conteudos_do_edital.items():
-            for conteudo in conteudos:
+        for disciplina in ED_DATA['Disciplinas']:
+            for i in range(np.random.randint(5, 15)): # Conteúdo aleatório para cada disciplina
                 status = 'Feito' if np.random.rand() < 0.5 else 'Pendente'
-                # ALTERADO PARA USAR "DISCIPLINAS" E "CONTEÚDOS"
-                sample_data.append({'Disciplinas': materia, 'Conteúdos': conteudo, 'Status': status})
+                sample_data.append({'Disciplinas': disciplina, 'Conteúdos': f'Tópico {i+1}', 'Status': status})
         
         return pd.DataFrame(sample_data)
 
@@ -109,7 +107,7 @@ def read_sales_data():
         
         df = pd.DataFrame(records, columns=headers)
         
-        # COLUNAS OBRIGATÓRIAS ALTERADAS
+        # Colunas obrigatórias
         required_columns = ['Disciplinas', 'Conteúdos', 'Status']
         missing_columns = [col for col in required_columns if col not in df.columns]
         
@@ -132,7 +130,6 @@ def calculate_weighted_metrics(df_dados):
     """Calcula métricas de progresso ponderado com base no edital."""
     df_edital = pd.DataFrame(ED_DATA)
     
-    # AGORA PROCURA POR "DISCIPLINAS"
     if df_dados.empty or 'Disciplinas' not in df_dados.columns or 'Status' not in df_dados.columns:
         st.error("Dados insuficientes para calcular métricas.")
         return pd.DataFrame(), 0.0
@@ -142,19 +139,17 @@ def calculate_weighted_metrics(df_dados):
     df_dados['Feito'] = (df_dados['Status'].str.lower() == 'feito').astype(int)
     df_dados['Pendente'] = (df_dados['Status'].str.lower() == 'pendente').astype(int)
     
-    # AGRUPA POR "DISCIPLINAS"
     df_progresso_summary = df_dados.groupby('Disciplinas', observed=False).agg(
         Conteudos_Feitos=('Feito', 'sum'),
         Conteudos_Pendentes=('Pendente', 'sum')
     ).reset_index()
     
-    # FAZ O MERGE COM OS DADOS DO EDITAL
     df_final = pd.merge(df_edital, df_progresso_summary, on='Disciplinas', how='left').fillna(0)
     
     df_final['Total_Conteudos_Real'] = df_final['Conteudos_Feitos'] + df_final['Conteudos_Pendentes']
     df_final['Pontos_por_Conteudo'] = np.where(
-        df_final['Total_Conteudos'] > 0, 
-        df_final['Peso'] / df_final['Total_Conteudos'], 
+        df_final['Total_Conteudos'] > 0,
+        df_final['Peso'] / df_final['Total_Conteudos'],
         0
     )
     df_final['Pontos_Concluidos'] = df_final['Conteudos_Feitos'] * df_final['Pontos_por_Conteudo']
@@ -162,8 +157,8 @@ def calculate_weighted_metrics(df_dados):
     df_final['Pontos_Pendentes'] = df_final['Pontos_Totais'] - df_final['Pontos_Concluidos']
     
     df_final['Progresso_Ponderado'] = np.where(
-        df_final['Peso'] > 0, 
-        np.round(df_final['Pontos_Concluidos'] / df_final['Peso'] * 100, 1), 
+        df_final['Peso'] > 0,
+        np.round(df_final['Pontos_Concluidos'] / df_final['Peso'] * 100, 1),
         0
     )
     
@@ -219,7 +214,7 @@ def apply_light_theme_css():
 def create_altair_donut_chart(data_row):
     """Cria um gráfico de rosca para o progresso ponderado."""
     df_chart = pd.DataFrame({
-        'Status': ['Concluído', 'Pendente'], 
+        'Status': ['Concluído', 'Pendente'],
         'Pontos': [data_row['Pontos_Concluidos'], data_row['Pontos_Pendentes']]
     })
     
@@ -237,7 +232,6 @@ def create_altair_donut_chart(data_row):
     ).encode(text=alt.Text('text:N'))
     
     return (pie + text_progresso).properties(
-        # AGORA USA O NOME "DISCIPLINAS"
         title=alt.TitleParams(
             text=data_row['Disciplinas'], fontSize=14, fontWeight='bold', anchor='start'
         ),
@@ -246,11 +240,10 @@ def create_altair_donut_chart(data_row):
 
 def create_altair_bar_chart(df_summary):
     """Cria gráfico de barras horizontal do progresso por disciplina."""
-    # AGRUPA POR "DISCIPLINAS"
     df_melted = df_summary.melt(
-        id_vars=['Disciplinas'], 
+        id_vars=['Disciplinas'],
         value_vars=['Conteudos_Feitos', 'Conteudos_Pendentes'],
-        var_name='Status', 
+        var_name='Status',
         value_name='Conteudos'
     )
     
@@ -260,7 +253,6 @@ def create_altair_bar_chart(df_summary):
         stroke='white', strokeWidth=1
     ).encode(
         x=alt.X('Conteudos:Q', title='Número de Conteúdos'),
-        # AGRUPA POR "DISCIPLINAS"
         y=alt.Y('Disciplinas:N', sort='-x', title=''),
         color=alt.Color('Status_Display:N', scale=alt.Scale(domain=['Concluído', 'Pendente'], range=['#667eea', '#e74c3c']), legend=alt.Legend(title="Status", orient="top")),
         tooltip=['Disciplinas:N', 'Status_Display:N', 'Conteudos:Q']
@@ -289,8 +281,8 @@ def create_priority_chart(df_summary):
 
 # --- Configuração da Página e UI Principal ---
 st.set_page_config(
-    page_title="Dashboard TAE UFG", 
-    page_icon="📊", 
+    page_title="Dashboard TAE UFG",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -320,7 +312,7 @@ with st.sidebar:
         st.markdown("""
         **Pesos das Disciplinas:**
         - Língua Portuguesa: 2
-        - RLM: 1  
+        - RLM: 1
         - Informática: 1
         - Legislação: 1
         - Conhecimentos Específicos: 3
@@ -359,9 +351,7 @@ if not df_dados.empty:
     
     st.markdown("---")
     
-    # Filtro de disciplinas
     st.markdown('<div class="section-header">🎨 Personalizar Visualização</div>', unsafe_allow_html=True)
-    # FILTRO POR "DISCIPLINAS"
     disciplinas_disponiveis = list(df_final['Disciplinas'].unique())
     disciplinas_selecionadas = st.multiselect(
         "Selecione as disciplinas para visualização:", disciplinas_disponiveis, default=disciplinas_disponiveis
@@ -408,7 +398,7 @@ else:
     st.markdown("""
     **Possíveis soluções:**
     1. Verifique se o ID da planilha está correto
-    2. Confirme se a aba 'Planilha1' existe
+    2. Confirme se a aba 'Registro' existe
     3. Verifique as permissões de acesso à planilha
     4. Confirme se as credenciais do Google estão configuradas corretamente
     """)
@@ -417,7 +407,7 @@ else:
 st.markdown("""
 <div class="footer">
     <p>
-        🚀 Dashboard desenvolvido com Streamlit | 
+        🚀 Dashboard desenvolvido com Streamlit |
         📊 Concurso TAE UFG 2025 |
         💡 Acompanhe seu progresso de forma inteligente
     </p>
