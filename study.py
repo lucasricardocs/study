@@ -17,8 +17,8 @@ warnings.filterwarnings('ignore', category=FutureWarning, message='.*observed=Fa
 
 # O ID e o nome da aba agora são lidos do secrets.toml para maior portabilidade
 try:
-    SPREADSHEET_ID = st.secrets["spreadsheet"]["id"]
-    WORKSHEET_NAME = st.secrets["spreadsheet"]["name"]
+    SPREADSHEET_ID = '1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs'
+    WORKSHEET_NAME = 'Registro'
 except KeyError:
     st.error("Configurações da planilha não encontradas em st.secrets. Verifique o arquivo secrets.toml.")
     st.stop()
