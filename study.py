@@ -15,13 +15,10 @@ warnings.filterwarnings('ignore', category=FutureWarning, message='.*observed=Fa
 
 # --- Configurações Globais e Constantes ---
 
-# O ID e o nome da aba agora são lidos do secrets.toml para maior portabilidade
-try:
-    SPREADSHEET_ID = '1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs'
-    WORKSHEET_NAME = 'Registro'
-except KeyError:
-    st.error("Configurações da planilha não encontradas em st.secrets. Verifique o arquivo secrets.toml.")
-    st.stop()
+# O ID e o nome da aba agora são fixos no código, como no primeiro exemplo.
+# Mantenha os valores corretos para o seu projeto.
+SPREADSHEET_ID = '1EyllfZ69b5H-n47iB-_Zau6nf3rcBEoG8qYNbYv5uGs'
+WORKSHEET_NAME = 'Registro'
 
 CONCURSO_DATE = datetime(2025, 9, 28) # Data do concurso
 
